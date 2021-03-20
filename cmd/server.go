@@ -53,14 +53,26 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		r := gin.Default()
-		m := melody.New()
+		mAdmin := melody.New()
+		mAgent := melody.New()
 		r.Use(static.Serve("/", EmbedFolder(content, "content")))
-		r.GET("/ws", func(c *gin.Context) {
+
+		r.GET("/ws/admin", func(c *gin.Context) {
 			log.Info("ws connection")
-			m.HandleRequest(c.Writer, c.Request)
+			mAdmin.HandleRequest(c.Writer, c.Request)
 		})
-		m.HandleMessage(func(s *melody.Session, msg []byte) {
-			m.Broadcast(msg)
+
+		r.GET("/ws/agent", func(c *gin.Context) {
+			log.Info("Client connection")
+			mAgent.HandleRequest(c.Writer, c.Request)
+		})
+
+		mAgent.HandleMessage(func(s *melody.Session, msg []byte) {
+			s.Write(msg)
+		})
+
+		mAdmin.HandleMessage(func(s *melody.Session, msg []byte) {
+			mAgent.Broadcast(msg)
 		})
 
 		r.Run(":5000")
