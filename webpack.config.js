@@ -4,8 +4,8 @@ const glob = require('glob')
 const path = require("path");
 const webpack = require("webpack");
 
-let pages = glob.sync(path.resolve(__dirname, 'source/pages/**/*.jsx')).reduce((acc, path) => {
-	const entry = path.replace(new RegExp('^.+/source/pages/'), '').replace(".jsx", '');
+let pages = glob.sync(path.resolve(__dirname, 'ui/pages/**/*.jsx')).reduce((acc, path) => {
+	const entry = path.replace(new RegExp('^.+/ui/pages/'), '').replace(".jsx", '');
 	if(entry.match(/index$/)) {
 		acc.push(entry + '.html')
 	} else {
@@ -18,16 +18,15 @@ let pages = glob.sync(path.resolve(__dirname, 'source/pages/**/*.jsx')).reduce((
 console.log(pages);
 
 let mode = 'development';
-let outPath = '/built/';
+let outPath = '/content/';
 if (process.env.production) {
 	mode = 'production';
-	outPath = '/docs/';
 }
 
 module.exports = {
 	mode: mode,
 	entry: {
-		app: path.resolve(__dirname, 'source/app.jsx'),
+		app: path.resolve(__dirname, 'ui/app.jsx'),
 	},
 	output: {
 		filename: '[name].js',
@@ -43,9 +42,8 @@ module.exports = {
 			production: false,
 		}),
 		...pages.map(page => new HtmlWebpackPlugin({
-			title: 'Greenstuff media',
+			title: 'Jabberwocky',
 			filename: page,
-//			template: 'source/index.html',
 		})),
 	],
 	context: path.resolve(__dirname),
@@ -53,9 +51,9 @@ module.exports = {
 		extensions: ["*", ".js", ".jsx"],
 		modules: [path.resolve(__dirname, 'node_modules')],
 		alias: {
-			Page: path.resolve(__dirname, 'source/pages/'),
-			Component: path.resolve(__dirname, 'source/components/'),
-			Include: path.resolve(__dirname, 'source/includes/'),
+			Page: path.resolve(__dirname, 'ui/pages/'),
+			Component: path.resolve(__dirname, 'ui/components/'),
+			Include: path.resolve(__dirname, 'ui/includes/'),
 		}
 	},
 	optimization: {

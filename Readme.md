@@ -9,6 +9,12 @@ Server pushes a message down, and results are attached to the same envelope.  Ag
 Agents will prefer to use dns to get server list, but can also use a seed node - reroute happens either way using lrw hashing
 sqlite for local database
 
+Server needs to ability to serve static files
+that way there are commands that can be given around pulling down files.
+It should also be able to dynamically fetch files from other places, or to direct the client to pull from arbitrary urls.
+Seems a bit much to have it push the file over the websocket.
+Pull from url, defaulting to self hosted, makes it a bit easier to cdn and be sensible.
+
 commands:
 server - runs the server
 agent - runs the agent

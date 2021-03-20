@@ -18,5 +18,6 @@
 *.bak
 bin
 node_modules
+cmd/content/*
 *.tar.gz
 *.tgz
