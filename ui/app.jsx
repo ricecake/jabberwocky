@@ -1,22 +1,20 @@
-import React from "react";
-import ReactDOM from "react-dom";
+import React from 'react';
+import ReactDOM from 'react-dom';
 import { Provider } from 'react-redux';
 
 import store from 'Include/store';
-import App from "Page/index";
+import App from 'Page/index';
 
 import {
 	BrowserRouter as Router,
 	Switch,
 	Route,
 	withRouter,
-} from "react-router-dom";
-
+} from 'react-router-dom';
 
 const RouterApp = withRouter(App);
 
-
-ReactDOM.render((
+ReactDOM.render(
 	<Provider store={store}>
 		<Router>
 			<Switch>
@@ -25,5 +23,6 @@ ReactDOM.render((
 				</Route>
 			</Switch>
 		</Router>
-	</Provider>
-), document.body);
+	</Provider>,
+	document.body
+);

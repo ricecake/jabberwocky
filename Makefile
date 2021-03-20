@@ -4,6 +4,7 @@ test:
 	go test -v ./...
 
 format:
+	npm run format
 	go fmt ./...
 
 deps: js-deps go-deps
