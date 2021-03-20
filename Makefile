@@ -1,4 +1,4 @@
-all: test build
+all: test format build
 
 test:
 	go test -v ./...

@@ -15,8 +15,6 @@ let pages = glob.sync(path.resolve(__dirname, 'ui/pages/**/*.jsx')).reduce((acc,
 	return acc
 }, []);
 
-console.log(pages);
-
 let mode = 'development';
 let outPath = '/content/';
 if (process.env.production) {
