@@ -1,0 +1,4 @@
+{
+  "presets": [["@babel/env", {"useBuiltIns": 'usage'}], "@babel/preset-react"],
+  "plugins": ["@babel/plugin-proposal-class-properties", ["minify-dead-code-elimination", { "optimizeRawSize": true }]],
+}
