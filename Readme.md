@@ -14,3 +14,17 @@ server - runs the server
 agent - runs the agent
 sign - used to sign a custom script, and upload to the cluster
 client - used to query the server cluster
+
+Authentication:
+ provide a set of options
+ fixed credentials - creds in config
+ proxy auth - if the proxy says you're okay...
+ url based - pass the credentials to a url as http basic, and if get 200, it's good
+ openid?
+   would need to be traditional flow, not spa
+   only a handful of endpoints to support
+   stretch
+    
+
+ basic notion is that we should be able to have the system accept a handful of auth options, and then do the right thing.
+ the ui is basically dumb

@@ -7,5 +7,5 @@ package main
 import "jabberwocky/cmd"
 
 func main() {
-  cmd.Execute()
+	cmd.Execute()
 }
