@@ -13,6 +13,8 @@ import (
 	"gopkg.in/olahol/melody.v1"
 	"io/fs"
 	"net/http"
+
+	"jabberwocky/transport"
 )
 
 // content is our static web server content.
@@ -68,11 +70,19 @@ to quickly create a Cobra application.`,
 		})
 
 		mAgent.HandleMessage(func(s *melody.Session, msg []byte) {
+			log.Info("got agent message")
 			s.Write(msg)
 		})
 
 		mAdmin.HandleMessage(func(s *melody.Session, msg []byte) {
-			mAgent.Broadcast(msg)
+			log.Info("got admin message")
+			rep, err := transport.Message{
+				Type: string(msg),
+			}.EncodeJson()
+			if err != nil {
+				log.Error(err.Error())
+			}
+			mAgent.Broadcast(rep)
 		})
 
 		r.Run(":5000")

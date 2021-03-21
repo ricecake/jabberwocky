@@ -34,3 +34,11 @@ Authentication:
 
  basic notion is that we should be able to have the system accept a handful of auth options, and then do the right thing.
  the ui is basically dumb
+
+should have an option to do ssdp clustering, but also make a client command to tell a node to join a seed node, or to configure a seed node in the config file
+
+
+Need to add a message type that agents can emit that sets tags.  The tags can get set on their connection in the server, and used to send them messages.
+So need: output, log, alive, and setTag
+These should respect fields they've been given when the job was installed, to allow for 'reply-to' style functionality.  So stored jobs on agent need to be able to keep job metadata
+should also include time fields and the like.  duration, and errors.  start finish and job id. jobs should be able to accept an id during installation, or make one up if they don't get one.
