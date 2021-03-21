@@ -68,7 +68,7 @@ to quickly create a Cobra application.`,
 			case <-done:
 				cancel()
 			case msg := <-input:
-				payload.Execute(msg, output)
+				payload.Execute(ctx, msg, output)
 			}
 		}
 

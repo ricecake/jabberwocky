@@ -71,7 +71,7 @@ to quickly create a Cobra application.`,
 
 		mAgent.HandleMessage(func(s *melody.Session, msg []byte) {
 			log.Info("got agent message")
-			s.Write(msg)
+			mAdmin.Broadcast(msg)
 		})
 
 		mAdmin.HandleMessage(func(s *melody.Session, msg []byte) {
