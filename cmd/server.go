@@ -85,6 +85,10 @@ to quickly create a Cobra application.`,
 			mAgent.Broadcast(rep)
 		})
 
+		// Possible to make this use a dynamic self signed cert
+		// by generating one with https://golang.org/pkg/crypto/x509/#MarshalPKCS8PrivateKey
+		// and then using the RunTLS function.  Will want to gate behind a flag, as it's mostly useful for
+		// testing.
 		r.Run(":5000")
 
 	},

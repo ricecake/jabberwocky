@@ -24,7 +24,13 @@ print("finished");
 func Execute(ctx context.Context, msg transport.Message, output chan transport.Message) {
 	log.Infof("%+v\n", msg)
 	msg.Seq++
-	output <- msg
-	output <- msg
-	go runScript(ctx, script, output)
+	payloadCtx, cancel := context.WithCancel(ctx)
+
+	switch msg.Type {
+	case "script":
+		go func() {
+			runScript(payloadCtx, script, output)
+			cancel()
+		}()
+	}
 }

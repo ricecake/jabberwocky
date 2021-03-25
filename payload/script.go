@@ -103,6 +103,19 @@ func (ex *externQuit) Body() exFunc {
 	}
 }
 
+type externHttpReq struct {
+	primitive
+}
+
+/*
+The body should make the request, and store it in itself, and if canceled, cancel the request.
+Needs to call a callback on success, and a different one on error.  So should support
+url
+args => map with args, headers, body, method and the like
+success callback
+error callback
+*/
+
 type runtime struct {
 	vm        *goja.Runtime
 	stopped   bool

@@ -1,4 +1,6 @@
-all: format deps build test
+all: format compile test
+
+compile: deps build
 
 test:
 	go test -v ./...
@@ -15,11 +17,17 @@ js-deps:
 go-deps:
 	go mod tidy
 
-js:
+js: js-deps js-build
+
+js-build:
 	npm run build
 
-build: js
+go: go-deps go-build
+
+go-build:
 	go build -o bin/jabberwocky
+
+build: js-build go-build
 
 release: go-deps js
 	go build -ldflags "-s -w" -o bin/jabberwocky

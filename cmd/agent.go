@@ -7,11 +7,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"jabberwocky/payload"
 	"jabberwocky/transport"
 
+	"github.com/apex/log"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/spf13/cobra"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
@@ -29,50 +30,80 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("agent called")
+		/*
+			setup storage libs, or load db from disk
+			make dns checks to find list to join, if available
+			check database for server list, if available
+			check config for main node
+			in backoff loop, try to connect to best fit.
+			if can't get connected, try the next best fit.
+			proceed through loop forver, with backoff doing it's thing.
+			repeat if options expanded.
+			once connected, execute
+				boot jobs
+				on connect jobs
+				start timers and crons
+		*/
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		// This context backoff doesn't do what was wanted.  Might be useless to me.
+		outerCtx, outerCancel := context.WithCancel(context.Background())
+		defer outerCancel()
+		ctxBackoff := backoff.WithContext(backoff.NewExponentialBackOff(), outerCtx)
+		err := backoff.Retry(func() error {
+			ctx, cancel := context.WithCancel(outerCtx)
+			defer cancel()
 
-		c, _, err := websocket.Dial(ctx, "wss://jabberwocky.devhost.dev/ws/agent", nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer c.Close(websocket.StatusInternalError, "the sky is falling")
-
-		done := make(chan struct{})
-		output := make(chan transport.Message)
-
-		go func() {
-			for msg := range output {
-				err = wsjson.Write(ctx, c, msg)
-				if err != nil {
-					log.Fatal(err)
-				}
+			c, _, err := websocket.Dial(ctx, "wss://jabberwocky.devhost.dev/ws/agent", nil)
+			if err != nil {
+				log.Error(err.Error())
+				return err
 			}
-		}()
+			defer c.Close(websocket.StatusInternalError, "the sky is falling")
 
-		input := make(chan transport.Message)
-		go func() {
+			errors := make(chan error)
+			done := make(chan struct{})
+			output := make(chan transport.Message)
+
+			go func() {
+				for msg := range output {
+					err = wsjson.Write(ctx, c, msg)
+					if err != nil {
+						log.Error(err.Error())
+						errors <- err
+					}
+				}
+			}()
+
+			input := make(chan transport.Message)
+			go func() {
+				for {
+					var msg transport.Message
+					err = wsjson.Read(ctx, c, &msg)
+					if err != nil {
+						log.Error(err.Error())
+						errors <- err
+					}
+					input <- msg
+				}
+			}()
+
 			for {
-				var msg transport.Message
-				err = wsjson.Read(ctx, c, &msg)
-				if err != nil {
-					log.Fatal(err)
+				select {
+				case err := <- errors:
+					return err
+				case <-done:
+					outerCancel()
+				case msg := <-input:
+					payload.Execute(ctx, msg, output)
 				}
-				input <- msg
 			}
-		}()
 
-		for {
-			select {
-			case <-done:
-				cancel()
-			case msg := <-input:
-				payload.Execute(ctx, msg, output)
-			}
+			c.Close(websocket.StatusNormalClosure, "")
+			return nil
+		}, ctxBackoff)
+		if err != nil {
+			log.Fatal(err.Error())
 		}
-
-		c.Close(websocket.StatusNormalClosure, "")
 
 	},
 }

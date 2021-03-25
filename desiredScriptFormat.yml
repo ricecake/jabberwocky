@@ -1,0 +1,39 @@
+---
+name: examplePayload
+author: sgreenhusted
+signature: asdfasdf===
+created: 2021-03-19
+updated: 2021-03-19
+tags:
+  os: linux
+  distro: rhel
+  version: 7
+metadata:
+  key: value
+  other: values
+---
+log("Info", "Starting!");
+
+tail("file", function(line){
+	log("Warn", line);
+});
+
+log("info", "registered!");
+
+
+It should be possible to add a simple parser to the shared utils library, that will just slurp all the contents between '---' and parse it as yaml, and then pass the rest as the script body.
+
+Specifically, it should parse from the first '---' to the second '---', each alone on one line, ignoring whitespace.  That way, it should be possible to enter:
+/*** Metadata ***
+---
+stuff: things
+more stuff: further things!
+---
+****************/
+
+so that the files can end in .js, and syntax highlighters wont freakout.
+
+Should also make sure to keep the before part, just for safety.  Or maybe it should just be '/*---' to '---*/'? to make it easy, and the first one needs to be on the first line?
+Or I'm overthinkign this all, and just use the --- and be done with it all.
+
+Need to write a function that can edit/manipulate the metadata in the file header, without changing the rest of the body.  That way the sign function can append the signature, and who did the signing, and when.

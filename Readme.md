@@ -7,6 +7,7 @@ Actions are logged
 Agent has a persistent connection to server
 Server pushes a message down, and results are attached to the same envelope.  Agent will preserve any metadata attached to command.
 Agents will prefer to use dns to get server list, but can also use a seed node - reroute happens either way using lrw hashing
+lrw hash weight should be based on the memberlist 'GetHealthScore' funciton.  Along the lines of 1/max(1, 1+GetHealthScore), with a minimum of 1, and then gcd with the lowest value being pegged to 1.
 sqlite for local database
 
 Server needs to ability to serve static files
@@ -42,3 +43,18 @@ Need to add a message type that agents can emit that sets tags.  The tags can ge
 So need: output, log, alive, and setTag
 These should respect fields they've been given when the job was installed, to allow for 'reply-to' style functionality.  So stored jobs on agent need to be able to keep job metadata
 should also include time fields and the like.  duration, and errors.  start finish and job id. jobs should be able to accept an id during installation, or make one up if they don't get one.
+
+Server needs the notion of different output backends.
+Server should support file, amqp, mqtt, nsq and http backends - should always have admin ws tap option
+Should have the ability to run a script to format output before sending to backend
+Should have the ability to accept a tag for the admin websocket connection, to filter what messages get sent over websocket.
+Should gossip what servers are in cluster, and what agents, and what agents live on which server.
+If trying to examine log output from an agent not on this server, should be able to link to the appropriate server, rather than try to stream logs from one to the other.
+Maybe can just connect the websocket to that server?  Might be easier.
+
+Need the ability for the server to run a script to check connection authentication.  Server scripts might need to have a couple extra commands available to them to do this.  Or just allow auth via http call for initial key negotiation?  Prefer script, with http capability.  That way can call out to an auth server which can approve based on tags associated with connecition, like IP address.
+
+
+When starting for the first time, and agent should create a public key, and send it to the server.  The server should store and gossip this key.
+When getting a connection, the server should send a challange message to the agent, which consists of a timestamped nonce and keyid, and the agent should a challange response
+that is the jwt for signing the given body.  Basically the server sends a jwt header and body, and the agent signs it, and the server checks that it all lines up.
