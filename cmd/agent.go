@@ -89,7 +89,7 @@ to quickly create a Cobra application.`,
 
 			for {
 				select {
-				case err := <- errors:
+				case err := <-errors:
 					return err
 				case <-done:
 					outerCancel()
