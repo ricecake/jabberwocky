@@ -38,7 +38,6 @@ func startDiscovery(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				m.Close()
 				ad.Close()
 				break
 			case <-searchTimer:
@@ -46,6 +45,7 @@ func startDiscovery(ctx context.Context) error {
 					continue
 				}
 
+				log.Info("Searching for peers...")
 				list, err := ssdp.Search(ssdpService, 1, "")
 				if err != nil {
 					log.Error(err.Error())

@@ -7,6 +7,7 @@ package cmd
 import (
 	"context"
 	"embed"
+	"fmt"
 	"io/fs"
 	"net/http"
 
@@ -14,6 +15,7 @@ import (
 	static "github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"gopkg.in/olahol/melody.v1"
 
 	"jabberwocky/cluster"
@@ -78,7 +80,16 @@ to quickly create a Cobra application.`,
 		// by generating one with https://golang.org/pkg/crypto/x509/#MarshalPKCS8PrivateKey
 		// and then using the RunTLS function.  Will want to gate behind a flag, as it's mostly useful for
 		// testing.
-		r.Run(":0")
+
+		ginInterface := viper.GetString("server.http.interface")
+		ginPort := viper.GetInt("server.http.port")
+		ginRunOn := fmt.Sprintf("%s:%d", ginInterface, ginPort)
+
+		if viper.GetBool("debug") {
+			ginRunOn = ":0"
+		}
+
+		r.Run(ginRunOn)
 
 	},
 }
