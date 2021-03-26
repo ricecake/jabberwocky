@@ -5,43 +5,24 @@ Copyright © 2021 Sebastian Green-Husted <geoffcake@gmail.com>
 package cmd
 
 import (
+	"context"
 	"embed"
+	"io/fs"
+	"net/http"
+
 	"github.com/apex/log"
 	static "github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gopkg.in/olahol/melody.v1"
-	"io/fs"
-	"net/http"
 
+	"jabberwocky/cluster"
 	"jabberwocky/transport"
 )
 
 // content is our static web server content.
 //go:embed content/*
 var content embed.FS
-
-type embedFileSystem struct {
-	http.FileSystem
-}
-
-func (e embedFileSystem) Exists(prefix string, path string) bool {
-	_, err := e.Open(path)
-	if err != nil {
-		return false
-	}
-	return true
-}
-
-func EmbedFolder(fsEmbed embed.FS, targetPath string) static.ServeFileSystem {
-	fsys, err := fs.Sub(fsEmbed, targetPath)
-	if err != nil {
-		panic(err)
-	}
-	return embedFileSystem{
-		FileSystem: http.FS(fsys),
-	}
-}
 
 // serverCmd represents the server command
 var serverCmd = &cobra.Command{
@@ -54,6 +35,14 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err := cluster.StartCluster(ctx)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
 		r := gin.Default()
 		mAdmin := melody.New()
 		mAgent := melody.New()
@@ -89,7 +78,7 @@ to quickly create a Cobra application.`,
 		// by generating one with https://golang.org/pkg/crypto/x509/#MarshalPKCS8PrivateKey
 		// and then using the RunTLS function.  Will want to gate behind a flag, as it's mostly useful for
 		// testing.
-		r.Run(":5000")
+		r.Run(":0")
 
 	},
 }
@@ -106,4 +95,26 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// serverCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+type embedFileSystem struct {
+	http.FileSystem
+}
+
+func (e embedFileSystem) Exists(prefix string, path string) bool {
+	_, err := e.Open(path)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func EmbedFolder(fsEmbed embed.FS, targetPath string) static.ServeFileSystem {
+	fsys, err := fs.Sub(fsEmbed, targetPath)
+	if err != nil {
+		panic(err)
+	}
+	return embedFileSystem{
+		FileSystem: http.FS(fsys),
+	}
 }

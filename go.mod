@@ -11,8 +11,11 @@ require (
 	github.com/gin-contrib/static v0.0.0-20200916080430-d45d9a37d28e
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
+	github.com/hashicorp/memberlist v0.1.3
 	github.com/hpcloud/tail v1.0.0
+	github.com/koron/go-ssdp v0.0.2
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/pborman/uuid v1.2.1
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1
 	golang.org/x/sys v0.0.0-20210317225723-c4fcb01b228e // indirect

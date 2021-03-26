@@ -68,6 +68,7 @@ func initConfig() {
 
 		// Search config in home directory with name ".jabberwocky" (without extension).
 		viper.AddConfigPath(home)
+		viper.AddConfigPath("/etc/")
 		viper.SetConfigName(".jabberwocky")
 	}
 

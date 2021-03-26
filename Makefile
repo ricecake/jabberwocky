@@ -5,8 +5,12 @@ compile: deps build
 test:
 	go test -v ./...
 
-format:
+format: go-fmt js-fmt
+
+js-fmt:
 	npm run format
+
+go-fmt:
 	go fmt ./...
 
 deps: js-deps go-deps

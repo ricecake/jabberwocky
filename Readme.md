@@ -58,3 +58,5 @@ Need the ability for the server to run a script to check connection authenticati
 When starting for the first time, and agent should create a public key, and send it to the server.  The server should store and gossip this key.
 When getting a connection, the server should send a challange message to the agent, which consists of a timestamped nonce and keyid, and the agent should a challange response
 that is the jwt for signing the given body.  Basically the server sends a jwt header and body, and the agent signs it, and the server checks that it all lines up.
+
+Should see if it's possible to support a plugin architecture for the js script functions.  That way downstream users can compile their own, without needing to modify the source.
