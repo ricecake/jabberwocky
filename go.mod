@@ -21,5 +21,7 @@ require (
 	golang.org/x/sys v0.0.0-20210317225723-c4fcb01b228e // indirect
 	golang.org/x/text v0.3.5 // indirect
 	gopkg.in/olahol/melody.v1 v1.0.0-20170518105555-d52139073376
+	gorm.io/driver/sqlite v1.1.4
+	gorm.io/gorm v1.21.5
 	nhooyr.io/websocket v1.8.6
 )

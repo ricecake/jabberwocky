@@ -60,3 +60,7 @@ When getting a connection, the server should send a challange message to the age
 that is the jwt for signing the given body.  Basically the server sends a jwt header and body, and the agent signs it, and the server checks that it all lines up.
 
 Should see if it's possible to support a plugin architecture for the js script functions.  That way downstream users can compile their own, without needing to modify the source.
+
+Should, if supporting basic auth, use something like bcrypt to store password hashes in config file, rather than raw passwords or sha based.
+
+

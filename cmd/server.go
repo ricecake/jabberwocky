@@ -19,6 +19,7 @@ import (
 	"gopkg.in/olahol/melody.v1"
 
 	"jabberwocky/cluster"
+	"jabberwocky/storage"
 	"jabberwocky/transport"
 )
 
@@ -39,6 +40,13 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+
+		ctx, dbErr := storage.ConnectDb(ctx)
+		if dbErr != nil {
+			log.Fatal(dbErr.Error())
+		}
+
+		storage.InitTables(ctx)
 
 		err := cluster.StartCluster(ctx)
 		if err != nil {
