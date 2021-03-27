@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"github.com/pborman/uuid"
 	"github.com/spf13/viper"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -44,4 +45,16 @@ func InitTables(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func GetNodeId(ctx context.Context) (string, error) {
+	newUUID := uuid.NewRandom().String()
+	var prop Property
+	err := db(ctx).Where(Property{Key: "node_id"}).Attrs(Property{Value: newUUID}).FirstOrCreate(&prop).Error
+
+	if err != nil {
+		return "", err
+	}
+
+	return prop.Value, nil
 }

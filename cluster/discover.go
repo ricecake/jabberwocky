@@ -33,14 +33,17 @@ func startDiscovery(ctx context.Context) error {
 		return err
 	}
 
-	searchTimer := time.Tick(time.Duration(5) * time.Second)
+	searchTimer := time.NewTicker(time.Duration(5) * time.Second)
 	go func() {
+	SEARCH:
 		for {
 			select {
 			case <-ctx.Done():
 				ad.Close()
-				break
-			case <-searchTimer:
+				searchTimer.Stop()
+				log.Info("Stopping discovery")
+				break SEARCH
+			case <-searchTimer.C:
 				if mlist.NumMembers() > 1 {
 					continue
 				}

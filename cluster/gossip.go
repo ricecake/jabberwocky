@@ -6,8 +6,9 @@ import (
 
 	"github.com/apex/log"
 	"github.com/hashicorp/memberlist"
-	"github.com/pborman/uuid"
 	"github.com/spf13/viper"
+
+	"jabberwocky/storage"
 )
 
 var (
@@ -18,9 +19,14 @@ var (
 )
 
 func startGossip(ctx context.Context) error {
+	nodeId, err := storage.GetNodeId(ctx)
+	if err != nil {
+		return err
+	}
+
 	dconf = memberlist.DefaultLANConfig()
 	dconf.BindPort = viper.GetInt("server.gossip_port")
-	dconf.Name = uuid.NewRandom().String()
+	dconf.Name = nodeId
 	dconf.Events = &handler
 	dconf.Delegate = &handler
 
@@ -106,3 +112,12 @@ func (b *broadcast) Message() []byte {
 }
 
 func (b *broadcast) Finished() {}
+
+func nodeState(peer *memberlist.Node) string {
+	switch peer.State {
+	case memberlist.StateAlive:
+		return "alive"
+	default:
+		return "degraded"
+	}
+}

@@ -5,7 +5,7 @@ import (
 )
 
 type Script struct {
-	Uuid      string
+	Uuid      string `gorm:"primaryKey"`
 	Created   string
 	Updated   string
 	Author    string
@@ -14,11 +14,16 @@ type Script struct {
 }
 
 type Server struct {
-	Uuid   string
+	Uuid   string `gorm:"primaryKey"`
 	Host   string
 	Port   int
 	Status string
-	Weight string
+	Weight int
+}
+
+type Property struct {
+	Key   string `gorm:"primaryKey"`
+	Value string
 }
 
 func initCommonTables(ctx context.Context) error {
@@ -26,6 +31,7 @@ func initCommonTables(ctx context.Context) error {
 		return db.AutoMigrate(
 			&Script{},
 			&Server{},
+			&Property{},
 		)
 	}
 	panic("WHY")

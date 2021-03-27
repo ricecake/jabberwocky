@@ -6,10 +6,10 @@ import (
 )
 
 type Agent struct {
-	Uuid            string
+	Uuid            string `gorm:"primaryKey"`
 	PublicKey       string
-	Status          string
-	DelegatedServer string
+	Status          string `gorm:"index"`
+	DelegatedServer string `gorm:"index"`
 	LastContact     time.Time
 }
 
