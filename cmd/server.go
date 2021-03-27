@@ -9,7 +9,11 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 
 	"github.com/apex/log"
 	static "github.com/gin-contrib/static"
@@ -40,6 +44,9 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+
+		notifyClose := make(chan os.Signal)
+		signal.Notify(notifyClose, os.Interrupt)
 
 		ctx, dbErr := storage.ConnectDb(ctx)
 		if dbErr != nil {
@@ -97,7 +104,18 @@ to quickly create a Cobra application.`,
 			ginRunOn = ":0"
 		}
 
-		r.Run(ginRunOn)
+		go func() {
+			ln, _ := net.Listen("tcp", ginRunOn)
+			log.Infof("Listening on %s", ln.Addr().String())
+			http.Serve(ln, r)
+		}()
+
+		select {
+		case <-notifyClose:
+			cancel()
+			log.Info("Shutting down per user request")
+			time.Sleep(time.Duration(1) * time.Second)
+		}
 
 	},
 }
