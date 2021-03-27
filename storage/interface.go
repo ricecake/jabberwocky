@@ -5,17 +5,23 @@ import (
 	"github.com/spf13/viper"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
 
 	"context"
 )
 
 func ConnectDb(ctx context.Context) (context.Context, error) {
 	dbFile := "jabberwocky.db" // This should pull a dir from the config
+	dbLogger := logger.Default
 
 	if viper.GetBool("debug") {
 		dbFile = "file::memory:?cache=shared"
+		dbLogger.LogMode(logger.Info)
 	}
-	db, err := gorm.Open(sqlite.Open(dbFile), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(dbFile), &gorm.Config{
+		Logger: dbLogger,
+	})
 	if err != nil {
 		return ctx, err
 	}
@@ -57,4 +63,17 @@ func GetNodeId(ctx context.Context) (string, error) {
 	}
 
 	return prop.Value, nil
+}
+
+func SaveServer(ctx context.Context, serv Server) error {
+	return db(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "uuid"}},
+		DoUpdates: clause.AssignmentColumns([]string{"host", "port", "status", "weight"}),
+	}).Create(&serv).Error
+}
+
+func GetServer(ctx context.Context, id string) (Server, error) {
+	var serv Server
+	err := db(ctx).Where(Server{Uuid: id}).First(&serv).Error
+	return serv, err
 }

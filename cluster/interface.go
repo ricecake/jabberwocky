@@ -15,3 +15,11 @@ func StartCluster(ctx context.Context) error {
 
 	return nil
 }
+
+func Health() string {
+	return nodeState(mlist.LocalNode())
+}
+
+func Priority() int {
+	return mlist.GetHealthScore()
+}

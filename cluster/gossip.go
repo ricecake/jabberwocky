@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/apex/log"
@@ -23,6 +24,9 @@ func startGossip(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	handler.ctx = ctx
+	handler.nodeId = nodeId
 
 	dconf = memberlist.DefaultLANConfig()
 	dconf.BindPort = viper.GetInt("server.gossip_port")
@@ -61,9 +65,16 @@ func shutdownGossip() {
 	log.Info("Gossip stopped")
 }
 
-type gossipDelegate struct{}
+type NodeState struct {
+	State   storage.Server
+	Agents  []storage.Agent
+	Scripts []storage.Script
+}
 
-type delegate struct{}
+type delegate struct {
+	nodeId string
+	ctx    context.Context
+}
 
 func (d *delegate) NodeMeta(limit int) []byte {
 	return []byte{}
@@ -77,10 +88,35 @@ func (d *delegate) GetBroadcasts(overhead, limit int) [][]byte {
 }
 
 func (d *delegate) LocalState(join bool) []byte {
-	return []byte{}
+	var state NodeState
+
+	server, err := storage.GetServer(d.ctx, d.nodeId)
+	if err != nil {
+		log.Error(err.Error())
+		return []byte{}
+	}
+
+	state.State = server
+
+	data, err := json.Marshal(&state)
+	if err != nil {
+		log.Error(err.Error())
+	}
+
+	return data
 }
 
 func (d *delegate) MergeRemoteState(buf []byte, join bool) {
+	var state NodeState
+	if err := json.Unmarshal(buf, &state); err != nil {
+		log.Error(err.Error())
+		return
+	}
+
+	if err := storage.SaveServer(d.ctx, state.State); err != nil {
+		log.Error(err.Error())
+		return
+	}
 }
 
 func (d *delegate) NotifyJoin(node *memberlist.Node) {

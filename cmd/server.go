@@ -55,11 +55,6 @@ to quickly create a Cobra application.`,
 
 		storage.InitTables(ctx)
 
-		err := cluster.StartCluster(ctx)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-
 		r := gin.Default()
 		mAdmin := melody.New()
 		mAgent := melody.New()
@@ -104,11 +99,37 @@ to quickly create a Cobra application.`,
 			ginRunOn = ":0"
 		}
 
+		ln, err := net.Listen("tcp", ginRunOn)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		log.Infof("Listening on %s", ln.Addr().String())
+
+		nodeId, err := storage.GetNodeId(ctx)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
 		go func() {
-			ln, _ := net.Listen("tcp", ginRunOn)
-			log.Infof("Listening on %s", ln.Addr().String())
 			http.Serve(ln, r)
 		}()
+
+		err = cluster.StartCluster(ctx)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		err = storage.SaveServer(ctx, storage.Server{
+			Uuid:   nodeId,
+			Host:   ginInterface,
+			Port:   ginPort,
+			Status: cluster.Health(),
+			Weight: cluster.Priority(),
+		})
+
+		if err != nil {
+			log.Fatal(err.Error())
+		}
 
 		select {
 		case <-notifyClose:
