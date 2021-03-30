@@ -7,6 +7,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"jabberwocky/payload"
 	"jabberwocky/transport"
@@ -48,59 +49,90 @@ to quickly create a Cobra application.`,
 		// This context backoff doesn't do what was wanted.  Might be useless to me.
 		outerCtx, outerCancel := context.WithCancel(context.Background())
 		defer outerCancel()
+
+		output := make(chan transport.Message)
+		input := make(chan transport.Message)
+
+		go func() {
+		CBLOOP:
+			for {
+				select {
+				case <-outerCtx.Done():
+					break CBLOOP
+				case msg := <-input:
+					payload.Execute(outerCtx, msg, output)
+				}
+			}
+		}()
+
 		ctxBackoff := backoff.WithContext(backoff.NewExponentialBackOff(), outerCtx)
-		err := backoff.Retry(func() error {
+		err := backoff.RetryNotify(func() error {
+			errors := make(chan error)
 			ctx, cancel := context.WithCancel(outerCtx)
 			defer cancel()
 
+			//TODO: use rendezvous hashing to pick server
+
 			c, _, err := websocket.Dial(ctx, "wss://jabberwocky.devhost.dev/ws/agent", nil)
 			if err != nil {
-				log.Error(err.Error())
 				return err
 			}
-			defer c.Close(websocket.StatusInternalError, "the sky is falling")
-
-			errors := make(chan error)
-			done := make(chan struct{})
-			output := make(chan transport.Message)
+			defer c.Close(websocket.StatusInternalError, "Unexpected disconnection")
+			log.Info("Connected to server")
 
 			go func() {
-				for msg := range output {
-					err = wsjson.Write(ctx, c, msg)
-					if err != nil {
-						log.Error(err.Error())
-						errors <- err
+			output:
+				for {
+					select {
+					case <-ctx.Done():
+						break output
+					case msg := <-output:
+						/*
+							There should we a handler here that will check for the type of the message, and if it's a control message,
+							then it should do the right control action.
+							The specific desired course is that the payload handler decides that it needs to re-do the connection,
+							so it sends a control message saying to reconnect.
+							The message will get sent to the server cluster, and then it'll disconnect, and start the reconnect flow.
+							This precludes moving a lot of the "not websocket" logic out of the backoff loop, which should make it behave easier
+							in the desired direction.
+						*/
+						err = wsjson.Write(ctx, c, msg)
+						if err != nil {
+							errors <- err
+						}
+						switch msg.Type {
+						case "shutdown":
+							outerCancel()
+						case "reconnect":
+							cancel()
+						}
 					}
 				}
 			}()
 
-			input := make(chan transport.Message)
 			go func() {
 				for {
 					var msg transport.Message
 					err = wsjson.Read(ctx, c, &msg)
 					if err != nil {
-						log.Error(err.Error())
 						errors <- err
 					}
 					input <- msg
 				}
 			}()
 
-			for {
-				select {
-				case err := <-errors:
-					return err
-				case <-done:
-					outerCancel()
-				case msg := <-input:
-					payload.Execute(ctx, msg, output)
-				}
+			select {
+			case err := <-errors:
+				return err
+			case <-ctx.Done():
+				c.Close(websocket.StatusNormalClosure, "Planned shutdown")
 			}
 
-			c.Close(websocket.StatusNormalClosure, "")
 			return nil
-		}, ctxBackoff)
+		}, ctxBackoff, func(err error, backoff time.Duration){
+			log.Errorf("Backoff [%0.2f]: %s", backoff.Seconds(), err.Error())
+		})
+
 		if err != nil {
 			log.Fatal(err.Error())
 		}
