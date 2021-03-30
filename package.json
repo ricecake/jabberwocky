@@ -8,7 +8,8 @@
     "build": "webpack",
     "serve": "webpack-dev-server",
     "prod-build": "production=true webpack",
-    "format": "prettier --write ui/*"
+    "format": "prettier --write ui/*",
+    "lint": "eslint ui/**/*.js ui/**/*.jsx"
   },
   "author": "",
   "license": "ISC",
@@ -23,6 +24,8 @@
     "babel-plugin-minify-dead-code-elimination": "^0.5.1",
     "clean-webpack-plugin": "^3.0.0",
     "css-loader": "^3.2.1",
+    "eslint": "^7.23.0",
+    "eslint-plugin-react": "^7.23.1",
     "html-webpack-plugin": "^3.2.0",
     "prettier": "^2.2.1",
     "react": "^16.12.0",

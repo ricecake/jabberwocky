@@ -1,4 +1,4 @@
-all: format compile test
+all: format lint compile test
 
 compile: deps build
 
@@ -12,6 +12,14 @@ js-fmt:
 
 go-fmt:
 	go fmt ./...
+
+lint: go-lint js-lint
+
+go-lint:
+	go vet
+
+js-lint:
+	echo "nope"
 
 deps: js-deps go-deps
 
