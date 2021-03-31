@@ -28,6 +28,17 @@ func (hrw *Hrw) RemoveNode(nodes ...string) {
 	}
 }
 
+func (hrw *Hrw) Size() int {
+	return len(hrw.nodes)
+}
+
+func (hrw *Hrw) Nodes() (nodes []string) {
+	for node, _ := range hrw.nodes {
+		nodes = append(nodes, node)
+	}
+	return
+}
+
 type hrwSortNode struct {
 	hash uint32
 	val  string
