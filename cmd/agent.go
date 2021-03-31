@@ -72,6 +72,8 @@ to quickly create a Cobra application.`,
 			defer cancel()
 
 			//TODO: use rendezvous hashing to pick server
+			//      need to make sure that our "seed node" from the config/dns/wherever is in there, since db only has "seen" nodes from cluster.
+			//      Might be easiest to just get list from db, and if empty, populate with defaults.  That way we might only connect to seed node once.
 
 			c, _, err := websocket.Dial(ctx, "wss://jabberwocky.devhost.dev/ws/agent", nil)
 			if err != nil {
@@ -129,7 +131,7 @@ to quickly create a Cobra application.`,
 			}
 
 			return nil
-		}, ctxBackoff, func(err error, backoff time.Duration){
+		}, ctxBackoff, func(err error, backoff time.Duration) {
 			log.Errorf("Backoff [%0.2f]: %s", backoff.Seconds(), err.Error())
 		})
 

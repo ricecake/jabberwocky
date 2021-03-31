@@ -67,8 +67,8 @@ func shutdownGossip() {
 
 type NodeState struct {
 	State   storage.Server
-	Agents  []storage.Agent
-	Scripts []storage.Script
+	Agents  []storage.Agent  `json:"omitempty"`
+	Scripts []storage.Script `json:"omitEmpty"`
 }
 
 type delegate struct {
@@ -77,7 +77,18 @@ type delegate struct {
 }
 
 func (d *delegate) NodeMeta(limit int) []byte {
-	return []byte{}
+	server, err := storage.GetServer(d.ctx, d.nodeId)
+	if err != nil {
+		log.Error(err.Error())
+		return []byte{}
+	}
+
+	data, err := json.Marshal(&server)
+	if err != nil {
+		log.Error(err.Error())
+	}
+
+	return data
 }
 
 func (d *delegate) NotifyMsg(b []byte) {
@@ -121,6 +132,7 @@ func (d *delegate) MergeRemoteState(buf []byte, join bool) {
 
 func (d *delegate) NotifyJoin(node *memberlist.Node) {
 	log.Info("A node has joined: " + node.String())
+	log.Infof("Full Data: %#v", node)
 }
 
 func (d *delegate) NotifyLeave(node *memberlist.Node) {

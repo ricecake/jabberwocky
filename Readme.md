@@ -64,3 +64,14 @@ Should see if it's possible to support a plugin architecture for the js script f
 Should, if supporting basic auth, use something like bcrypt to store password hashes in config file, rather than raw passwords or sha based.
 
 
+Should flesh out the different type of commands more.
+Need at basic: script, execute a command, watch for changes in a directory, and tail a log file.
+Should also have "watch journalctl for a unit", which will handle the muck of json encoding it and whatnot.
+Should also expose that as a js builtin, so that scripts can filter.
+
+Should basically all commands be js functions?  Do they need to be standalone, if a simple js script can execute?
+Would be nice for simplicity.  But should see what can be done for code sharing, so that the command can send the same args that the js wrapper would expect.
+Have each command expose a category, and a name.  Then install in in js so that it's called as "category.name()"
+
+in addition to text log functions, error, warn, info, debug, trace, need a way to emit a structured object as the output.  Shouldn't be too fancy, just a way to say "there's text", and "there's structures".  Don't support top level arrays, but allow them lower in the object.
+

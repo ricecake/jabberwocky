@@ -72,8 +72,27 @@ func SaveServer(ctx context.Context, serv Server) error {
 	}).Create(&serv).Error
 }
 
+func SaveServers(ctx context.Context, servs []Server) error {
+	return db(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "uuid"}},
+		DoUpdates: clause.AssignmentColumns([]string{"host", "port", "status", "weight"}),
+	}).Create(&servs).Error
+}
+
 func GetServer(ctx context.Context, id string) (Server, error) {
 	var serv Server
 	err := db(ctx).Where(Server{Uuid: id}).First(&serv).Error
 	return serv, err
+}
+
+func ListAllServers(ctx context.Context) ([]Server, error) {
+	var servs []Server
+	err := db(ctx).Find(&servs).Error
+	return servs, err
+}
+
+func ListLiveServers(ctx context.Context) ([]Server, error) {
+	var servs []Server
+	err := db(ctx).Where(Server{Status: "alive"}).Find(&servs).Error
+	return servs, err
 }

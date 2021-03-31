@@ -28,7 +28,10 @@ require (
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/miekg/dns v1.1.41 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/onsi/ginkgo v1.6.0
+	github.com/onsi/gomega v1.5.0
 	github.com/pborman/uuid v1.2.1
+	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1
 	github.com/ugorji/go v1.2.4 // indirect

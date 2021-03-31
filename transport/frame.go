@@ -20,7 +20,7 @@ type Command struct {
 	IntervalType  string // once fixed cron boot connect
 	FixedInterval int
 	CronInterval  string
-	Type          string
+	Type          string // exec script watch tail journal, and also things like "cancel a job"
 	Payload       string
 	Arguments     string
 	MaxDuration   int

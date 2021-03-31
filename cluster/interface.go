@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+// TODO: make this accept a channel for "cluster events" so that we can push node up/down to clients when they happen
 func StartCluster(ctx context.Context) error {
 	if err := startGossip(ctx); err != nil {
 		return err

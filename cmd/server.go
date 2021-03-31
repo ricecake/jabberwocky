@@ -114,19 +114,19 @@ to quickly create a Cobra application.`,
 			http.Serve(ln, r)
 		}()
 
-		err = cluster.StartCluster(ctx)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-
 		err = storage.SaveServer(ctx, storage.Server{
 			Uuid:   nodeId,
 			Host:   ginInterface,
 			Port:   ginPort,
-			Status: cluster.Health(),
-			Weight: cluster.Priority(),
+			Status: "alive",
+			Weight: 0,
 		})
 
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		err = cluster.StartCluster(ctx)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
