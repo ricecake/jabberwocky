@@ -7,14 +7,18 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"jabberwocky/payload"
+	"jabberwocky/storage"
 	"jabberwocky/transport"
+	"jabberwocky/util"
 
 	"github.com/apex/log"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
@@ -47,8 +51,15 @@ to quickly create a Cobra application.`,
 		*/
 
 		// This context backoff doesn't do what was wanted.  Might be useless to me.
-		outerCtx, outerCancel := context.WithCancel(context.Background())
+		initCtx, outerCancel := context.WithCancel(context.Background())
 		defer outerCancel()
+
+		outerCtx, dbErr := storage.ConnectDb(initCtx)
+		if dbErr != nil {
+			log.Fatal(dbErr.Error())
+		}
+
+		storage.InitTables(outerCtx)
 
 		output := make(chan transport.Message)
 		input := make(chan transport.Message)
@@ -75,7 +86,42 @@ to quickly create a Cobra application.`,
 			//      need to make sure that our "seed node" from the config/dns/wherever is in there, since db only has "seen" nodes from cluster.
 			//      Might be easiest to just get list from db, and if empty, populate with defaults.  That way we might only connect to seed node once.
 
-			c, _, err := websocket.Dial(ctx, "wss://jabberwocky.devhost.dev/ws/agent", nil)
+			agentId, err := storage.GetNodeId(ctx)
+			if err != nil {
+				return err
+			}
+
+			var servers []string
+			seen, err := storage.ListLiveServers(ctx)
+			if err != nil {
+				return err
+			}
+
+			if len(seen) == 0 {
+				log.Info("Using seed nodes")
+				servers = viper.GetStringSlice("agent.seed_nodes")
+			} else {
+				for _, serv := range seen {
+					servers = append(servers, serv.UrlString())
+				}
+			}
+
+			hrw := util.NewHrw()
+
+			hrw.AddNode(servers...)
+
+			targetNode := hrw.Get(agentId)
+			log.Infof("picked server [%s]", targetNode)
+
+			connUrl, err := url.Parse(targetNode)
+			if err != nil {
+				return err
+			}
+
+			connUrl.Scheme = "wss"
+			connUrl.Path = "/ws/agent"
+
+			c, _, err := websocket.Dial(ctx, connUrl.String(), nil)
 			if err != nil {
 				return err
 			}

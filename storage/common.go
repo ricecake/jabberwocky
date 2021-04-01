@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 )
 
 type Script struct {
@@ -19,6 +20,10 @@ type Server struct {
 	Port   int
 	Status string
 	Weight int
+}
+
+func (srv Server) UrlString() string {
+	return fmt.Sprintf("%s:%i", srv.Host, srv.Port)
 }
 
 type Property struct {
