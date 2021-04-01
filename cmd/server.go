@@ -126,18 +126,37 @@ to quickly create a Cobra application.`,
 			log.Fatal(err.Error())
 		}
 
-		err = cluster.StartCluster(ctx)
+		eventChan := make(chan cluster.MemberEvent, 1)
+
+		err = cluster.StartCluster(ctx, eventChan)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 
-		select {
-		case <-notifyClose:
-			cancel()
-			log.Info("Shutting down per user request")
-			time.Sleep(time.Duration(1) * time.Second)
-		}
+		for {
+			select {
+			case event := <-eventChan:
+				log.Infof("NODE: %#v", event)
+				err := storage.SaveServer(ctx, event.Server)
+				if err != nil {
+					log.Error(err.Error())
+				}
 
+				rep, err := transport.Message{
+					Type:    "server",
+					Content: event.Server,
+				}.EncodeJson()
+				if err != nil {
+					log.Error(err.Error())
+				}
+				mAgent.Broadcast(rep)
+			case <-notifyClose:
+				cancel()
+				log.Info("Shutting down per user request")
+				time.Sleep(time.Duration(1) * time.Second)
+				os.Exit(0)
+			}
+		}
 	},
 }
 

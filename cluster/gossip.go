@@ -19,7 +19,12 @@ var (
 	handler    delegate
 )
 
-func startGossip(ctx context.Context) error {
+type MemberEvent struct {
+	Server storage.Server
+	Leave  bool
+}
+
+func startGossip(ctx context.Context, eventChan chan MemberEvent) error {
 	nodeId, err := storage.GetNodeId(ctx)
 	if err != nil {
 		return err
@@ -27,6 +32,7 @@ func startGossip(ctx context.Context) error {
 
 	handler.ctx = ctx
 	handler.nodeId = nodeId
+	handler.memberEvents = eventChan
 
 	dconf = memberlist.DefaultLANConfig()
 	dconf.BindPort = viper.GetInt("server.gossip_port")
@@ -51,6 +57,7 @@ func startGossip(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			shutdownGossip()
+			close(eventChan)
 		}
 	}()
 
@@ -72,8 +79,9 @@ type NodeState struct {
 }
 
 type delegate struct {
-	nodeId string
-	ctx    context.Context
+	nodeId       string
+	ctx          context.Context
+	memberEvents chan MemberEvent
 }
 
 func (d *delegate) NodeMeta(limit int) []byte {
@@ -132,11 +140,30 @@ func (d *delegate) MergeRemoteState(buf []byte, join bool) {
 
 func (d *delegate) NotifyJoin(node *memberlist.Node) {
 	log.Info("A node has joined: " + node.String())
-	log.Infof("Full Data: %#v", node)
+
+	var state storage.Server
+	if err := json.Unmarshal(node.Meta, &state); err != nil {
+		log.Error(err.Error())
+		return
+	}
+
+	state.Status = nodeState(node)
+
+	d.memberEvents <- MemberEvent{state, false}
 }
 
 func (d *delegate) NotifyLeave(node *memberlist.Node) {
 	log.Info("A node has left: " + node.String())
+
+	var state storage.Server
+	if err := json.Unmarshal(node.Meta, &state); err != nil {
+		log.Error(err.Error())
+		return
+	}
+
+	state.Status = "offline"
+
+	d.memberEvents <- MemberEvent{state, true}
 }
 
 func (d *delegate) NotifyUpdate(node *memberlist.Node) {

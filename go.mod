@@ -8,7 +8,6 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/dop251/goja v0.0.0-20210317175251-bb14c2267b76
-	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gin-contrib/static v0.0.0-20200916080430-d45d9a37d28e
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
