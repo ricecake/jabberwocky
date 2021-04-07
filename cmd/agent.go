@@ -133,6 +133,7 @@ to quickly create a Cobra application.`,
 				return err
 			}
 			defer c.Close(websocket.StatusInternalError, "Unexpected disconnection")
+			storage.SetCurrentServer(ctx, targetNode)
 			log.Info("Connected to server")
 
 			go func() {

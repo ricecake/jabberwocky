@@ -70,6 +70,20 @@ func GetNodeId(ctx context.Context) (string, error) {
 	return prop.Value, nil
 }
 
+func SetCurrentServer(ctx context.Context, serv Server) error {
+	return db(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value"}),
+	}).Create(&Property{Key: "server_node", Value: serv.Uuid}).Error
+}
+
+func GetCurrentServer(ctx context.Context) (Server, error) {
+	var serv Server
+	dbh := db(ctx)
+	err := dbh.Where("uuid = (?)", dbh.Model(&Property{}).Where(&Property{Key: "server_node"}).Select("value")).Find(&serv).Error
+	return serv, err
+}
+
 func SaveServer(ctx context.Context, serv Server) error {
 	return db(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "uuid"}},

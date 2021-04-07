@@ -5,6 +5,7 @@ import (
 
 	"jabberwocky/storage"
 	"jabberwocky/transport"
+	"jabberwocky/util"
 
 	"github.com/apex/log"
 	"github.com/mitchellh/mapstructure"
@@ -33,13 +34,12 @@ func Execute(ctx context.Context, msg transport.Message, output chan transport.M
 		var serv storage.Server
 		mapstructure.Decode(msg.Content, &serv)
 		storage.SaveServer(ctx, serv)
-		output <- transport.Message{Type: "reconnect"}
+		maybeReconnect(ctx, output)
 	case "serverList":
 		var servs []storage.Server
 		mapstructure.Decode(msg.Content, &servs)
-		for _, serv := range servs {
-			storage.SaveServer(ctx, serv)
-		}
+		storage.SaveServers(ctx, servs)
+		maybeReconnect(ctx, output)
 	case "script":
 		go func() {
 			runScript(payloadCtx, script, output)
@@ -48,4 +48,30 @@ func Execute(ctx context.Context, msg transport.Message, output chan transport.M
 	}
 }
 
-//todo: a helper function that will calculate if we need to do a reconnection loop.
+func maybeReconnect(ctx context.Context, output chan transport.Message) {
+	hrw := util.NewHrw()
+
+	agentId, err := storage.GetNodeId(ctx)
+	if err != nil {
+		log.Error(err.Error())
+	}
+
+	currentServer, err := storage.GetCurrentServer(ctx)
+	if err != nil {
+		log.Error(err.Error())
+	}
+
+	nodes, err := storage.ListLiveServers(ctx)
+	if err != nil {
+		log.Error(err.Error())
+	}
+
+	for _, node := range nodes {
+		hrw.AddNode(node)
+	}
+
+	newNode := hrw.Get(agentId).(storage.Server)
+	if newNode.Uuid != currentServer.Uuid {
+		output <- transport.Message{Type: "reconnect"}
+	}
+}
