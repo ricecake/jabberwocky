@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"net/url"
 )
 
 type Script struct {
@@ -22,8 +23,23 @@ type Server struct {
 	Weight int
 }
 
-func (srv Server) UrlString() string {
-	return fmt.Sprintf("%s:%i", srv.Host, srv.Port)
+func (srv Server) Url() url.URL {
+	host := srv.Host
+	if srv.Port != 0 && srv.Port != 443 {
+		host = fmt.Sprintf("%s:%d", host, srv.Port)
+	}
+	return url.URL{
+		Scheme: "wss",
+		Host:   host,
+	}
+}
+
+func (srv Server) HashKey() string {
+	return srv.Uuid
+}
+
+func (srv Server) HashWeight() int {
+	return srv.Weight + 1
 }
 
 type Property struct {

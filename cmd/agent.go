@@ -7,7 +7,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"time"
 
 	"jabberwocky/payload"
@@ -60,6 +59,7 @@ to quickly create a Cobra application.`,
 		}
 
 		storage.InitTables(outerCtx)
+		storage.MarkServersUnknown(outerCtx)
 
 		output := make(chan transport.Message)
 		input := make(chan transport.Message)
@@ -91,7 +91,7 @@ to quickly create a Cobra application.`,
 				return err
 			}
 
-			var servers []string
+			var servers []util.HrwNode
 			seen, err := storage.ListLiveServers(ctx)
 			if err != nil {
 				return err
@@ -99,10 +99,18 @@ to quickly create a Cobra application.`,
 
 			if len(seen) == 0 {
 				log.Info("Using seed nodes")
-				servers = viper.GetStringSlice("agent.seed_nodes")
+			SEED:
+				for _, sUrl := range viper.GetStringSlice("agent.seed_nodes") {
+					serv, err := storage.ServerFromString(sUrl)
+					if err != nil {
+						log.Error(err.Error())
+						continue SEED
+					}
+					servers = append(servers, serv)
+				}
 			} else {
 				for _, serv := range seen {
-					servers = append(servers, serv.UrlString())
+					servers = append(servers, serv)
 				}
 			}
 
@@ -110,19 +118,18 @@ to quickly create a Cobra application.`,
 
 			hrw.AddNode(servers...)
 
-			targetNode := hrw.Get(agentId)
-			log.Infof("picked server [%s]", targetNode)
-
-			connUrl, err := url.Parse(targetNode)
-			if err != nil {
-				return err
-			}
+			targetNode := hrw.Get(agentId).(storage.Server)
+			connUrl := targetNode.Url()
 
 			connUrl.Scheme = "wss"
 			connUrl.Path = "/ws/agent"
 
+			log.Infof("picked server [%s]", connUrl.String())
+
 			c, _, err := websocket.Dial(ctx, connUrl.String(), nil)
 			if err != nil {
+				targetNode.Status = "degraded"
+				storage.SaveServer(ctx, targetNode)
 				return err
 			}
 			defer c.Close(websocket.StatusInternalError, "Unexpected disconnection")
@@ -152,7 +159,7 @@ to quickly create a Cobra application.`,
 						case "shutdown":
 							outerCancel()
 						case "reconnect":
-							cancel()
+							errors <- fmt.Errorf("Reconnection")
 						}
 					}
 				}
@@ -184,6 +191,8 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			log.Fatal(err.Error())
 		}
+
+		log.Info("Exiting")
 
 	},
 }

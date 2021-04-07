@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"github.com/apex/log"
 	"github.com/pborman/uuid"
 	"github.com/spf13/viper"
 	"gorm.io/driver/sqlite"
@@ -9,10 +10,14 @@ import (
 	"gorm.io/gorm/logger"
 
 	"context"
+	"net/url"
+	"strconv"
 )
 
 func ConnectDb(ctx context.Context) (context.Context, error) {
-	dbFile := "jabberwocky.db" // This should pull a dir from the config
+
+	viper.SetDefault("global.db", "jabberwocky.db")
+	dbFile := viper.GetString("global.db")
 	dbLogger := logger.Default
 
 	if viper.GetBool("debug") {
@@ -72,6 +77,10 @@ func SaveServer(ctx context.Context, serv Server) error {
 	}).Create(&serv).Error
 }
 
+func MarkServersUnknown(ctx context.Context) error {
+	return db(ctx).Model(&Server{}).Where("status != ?", "unknown").Update("status", "unknown").Error
+}
+
 func SaveServers(ctx context.Context, servs []Server) error {
 	return db(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "uuid"}},
@@ -95,4 +104,29 @@ func ListLiveServers(ctx context.Context) ([]Server, error) {
 	var servs []Server
 	err := db(ctx).Where(Server{Status: "alive"}).Find(&servs).Error
 	return servs, err
+}
+
+func ServerFromString(server string) (Server, error) {
+	var serv Server
+	parsed, err := url.Parse(server)
+	if err != nil {
+		return serv, err
+	}
+
+	port := 443
+	if p := parsed.Port(); p != "" {
+		v, err := strconv.Atoi(p)
+		if err != nil {
+			log.Error(err.Error())
+		} else {
+			port = v
+		}
+	}
+
+	serv.Host = parsed.Host
+	serv.Port = port
+	serv.Uuid = parsed.Fragment
+	serv.Status = "alive"
+
+	return serv, nil
 }

@@ -6,25 +6,31 @@ import (
 	"github.com/spaolacci/murmur3"
 )
 
+type HrwNode interface {
+	HashKey() string
+	HashWeight() int
+}
+
 type Hrw struct {
-	nodes map[string]int
+	nodes map[string]HrwNode
 }
 
 func NewHrw() *Hrw {
 	return &Hrw{
-		nodes: make(map[string]int),
+		nodes: make(map[string]HrwNode),
 	}
 }
 
-func (hrw *Hrw) AddNode(nodes ...string) {
+func (hrw *Hrw) AddNode(nodes ...HrwNode) {
 	for _, node := range nodes {
-		hrw.nodes[node] = 1
+		val := node.HashKey()
+		hrw.nodes[val] = node
 	}
 }
 
-func (hrw *Hrw) RemoveNode(nodes ...string) {
+func (hrw *Hrw) RemoveNode(nodes ...HrwNode) {
 	for _, node := range nodes {
-		delete(hrw.nodes, node)
+		delete(hrw.nodes, node.HashKey())
 	}
 }
 
@@ -32,8 +38,8 @@ func (hrw *Hrw) Size() int {
 	return len(hrw.nodes)
 }
 
-func (hrw *Hrw) Nodes() (nodes []string) {
-	for node, _ := range hrw.nodes {
+func (hrw *Hrw) Nodes() (nodes []HrwNode) {
+	for _, node := range hrw.nodes {
 		nodes = append(nodes, node)
 	}
 	return
@@ -41,14 +47,14 @@ func (hrw *Hrw) Nodes() (nodes []string) {
 
 type hrwSortNode struct {
 	hash uint32
-	val  string
+	val  HrwNode
 }
 
-func (hrw *Hrw) Get(value string) string {
+func (hrw *Hrw) Get(value string) HrwNode {
 	var values []hrwSortNode
 
-	for node, _ := range hrw.nodes {
-		hash := murmur3.Sum32([]byte(node + value))
+	for key, node := range hrw.nodes {
+		hash := murmur3.Sum32([]byte(key + value))
 		values = append(values, hrwSortNode{hash, node})
 	}
 

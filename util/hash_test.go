@@ -7,15 +7,30 @@ import (
 	"jabberwocky/util"
 )
 
+type testNode struct {
+	name string
+}
+
+func (tn testNode) HashKey() string {
+	return tn.name
+}
+func (tn testNode) HashWeight() int {
+	return 1
+}
+
+func mkTn(s string) testNode {
+	return testNode{s}
+}
+
 var _ = Describe("Util", func() {
 	Context("HRW type", func() {
 		var hrw *util.Hrw
-		var nodes []string
+		var nodes []util.HrwNode
 		var entity string
 
 		BeforeEach(func() {
-			nodes = []string{
-				"node_a", "node_b", "node_c",
+			nodes = []util.HrwNode{
+				mkTn("node_a"), mkTn("node_b"), mkTn("node_c"),
 			}
 			entity = "someAgent"
 		})
@@ -33,41 +48,41 @@ var _ = Describe("Util", func() {
 				}
 
 				By("adding a new node")
-				hrw.AddNode("node_d")
+				hrw.AddNode(mkTn("node_d"))
 
 				By("checking that it's there")
-				Expect(hrw.Nodes()).To(ContainElement("node_d"))
+				Expect(hrw.Nodes()).To(ContainElement(mkTn("node_d")))
 			})
 			It("counts saved nodes", func() {
 				By("checking preconditions")
 				Expect(hrw.Size()).To(Equal(len(nodes)))
 
 				By("adding a new node")
-				hrw.AddNode("node_d")
+				hrw.AddNode(mkTn("node_d"))
 
 				By("checking that it's there")
 				Expect(hrw.Size()).To(Equal(len(nodes) + 1))
 			})
 			It("removes nodes", func() {
-				Expect(hrw.Nodes()).To(ContainElement("node_a"))
-				hrw.RemoveNode("node_a")
-				Expect(hrw.Nodes()).ToNot(ContainElement("node_a"))
+				Expect(hrw.Nodes()).To(ContainElement(mkTn("node_a")))
+				hrw.RemoveNode(mkTn("node_a"))
+				Expect(hrw.Nodes()).ToNot(ContainElement(mkTn("node_a")))
 			})
 			It("returns correct node", func() {
 				selected := hrw.Get(entity)
-				Expect(selected).To(Equal("node_b"))
+				Expect(selected).To(Equal(mkTn("node_b")))
 			})
 
 			It("returns correct node when an unrelated node removed", func() {
-				hrw.RemoveNode("node_a")
+				hrw.RemoveNode(mkTn("node_a"))
 				selected := hrw.Get(entity)
-				Expect(selected).To(Equal("node_b"))
+				Expect(selected).To(Equal(mkTn("node_b")))
 			})
 
 			It("returns correct node when a related node removed", func() {
-				hrw.RemoveNode("node_b")
+				hrw.RemoveNode(mkTn("node_b"))
 				selected := hrw.Get(entity)
-				Expect(selected).To(Equal("node_a"))
+				Expect(selected).To(Equal(mkTn("node_a")))
 			})
 
 		})

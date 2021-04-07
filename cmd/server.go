@@ -53,7 +53,15 @@ to quickly create a Cobra application.`,
 			log.Fatal(dbErr.Error())
 		}
 
-		storage.InitTables(ctx)
+		initErr := storage.InitTables(ctx)
+		if initErr != nil {
+			log.Fatal(initErr.Error())
+		}
+
+		unkErr := storage.MarkServersUnknown(ctx)
+		if unkErr != nil {
+			log.Fatal(unkErr.Error())
+		}
 
 		r := gin.Default()
 		mAdmin := melody.New()
@@ -68,6 +76,24 @@ to quickly create a Cobra application.`,
 		r.GET("/ws/agent", func(c *gin.Context) {
 			log.Info("Client connection")
 			mAgent.HandleRequest(c.Writer, c.Request)
+		})
+
+		mAgent.HandleConnect(func(s *melody.Session) {
+			//This should broadcast a list of agents to the newly connected client, so that it can assess appropriately.
+			log.Info("Websocket established")
+			servers, err := storage.ListLiveServers(ctx)
+			if err != nil {
+				log.Error(err.Error())
+			}
+
+			msg, err := transport.Message{
+				Type:    "serverList",
+				Content: servers,
+			}.EncodeJson()
+			if err != nil {
+				log.Error(err.Error())
+			}
+			s.Write(msg)
 		})
 
 		mAgent.HandleMessage(func(s *melody.Session, msg []byte) {
@@ -114,10 +140,13 @@ to quickly create a Cobra application.`,
 			http.Serve(ln, r)
 		}()
 
+		viper.SetDefault("server.advertise.host", ginInterface)
+		viper.SetDefault("server.advertise.port", ginPort)
+
 		err = storage.SaveServer(ctx, storage.Server{
 			Uuid:   nodeId,
-			Host:   ginInterface,
-			Port:   ginPort,
+			Host:   viper.GetString("server.advertize.host"),
+			Port:   viper.GetInt("server.advertize.port"),
 			Status: "alive",
 			Weight: 0,
 		})
