@@ -75,3 +75,44 @@ Have each command expose a category, and a name.  Then install in in js so that 
 
 in addition to text log functions, error, warn, info, debug, trace, need a way to emit a structured object as the output.  Shouldn't be too fancy, just a way to say "there's text", and "there's structures".  Don't support top level arrays, but allow them lower in the object.
 
+
+Need to develop an intermediary delegate for server command execution.
+giving a command via tool, web should gossip the command outwards to other nodes.
+Should have a delegate that handles events that come in via different channels, so that it's consistent in how it handles the events, regardless of their origin.
+
+Should also move the different commands into a seperate file.
+There should be a top level "command" management file under the payload module, and then different files for different  ppaayload categories.
+Larger categories may have multiple files, but it's entirely predicated on what makes it easier to find commands.
+
+Commands should have a "key", which is a dot delimited list of nested categories, with the final label being the command name.
+might split that into a dot command string, and a seperate name string, but probably not.
+
+Should use afero for a mock filesystem that can be handled by tests/reality.
+Should make an interface for a "command executor" that will typically just be a pass through, probably with logging and such.
+Should also be a system for enforcing command acls, which might be returned from the executor delegate.
+Goal is to make things mockable for better testing.
+
+Should consider the scope of whats handled by the gossip delegate.  Should it be all gossip messages, or just broadcast commands?
+Leaning all gossip events, since it makes sense to handle node join/remove via the same mechanism as a broadcast signal about a client joing a server.
+Thinking is required.
+
+
+The payload execute method should be more focused on figuring out what type of job it is, and creating as needed, than on immediate execution.
+Need a Job db type, which if it's a persistent job can be recorded.
+the basic flow should be "create job -> record if persistent -> initiate job".  Depending on type, initiation may be direct execution, or it might be cron registration, etc, etc.
+When starting the system, it will do setup, and then initiate jobs based on what time period different jobs need to be run.
+on start, on connect, interval, cron, on stop, on disconnect
+
+registering a script should be a different command than executing the script.  That way scripts are seen as generally persistent things.  scripts will also need to be deleted.
+
+need to filter based on type, with the "command" type being what precipitates the creation and initiation of job records.
+
+
+for now, keep output options simple.  Always support a "firehose" websocket.  If anyone connects to it, they'll get the stream.
+Also include AMQP support, since I want to use that.  In the future, consider nsq, and outbound websocket stream
+
+
+Should make the gossip parts gossip signed messages, to protect against unintended joints.  Basically just use hmac signed preshared keys, in a jwt setup.
+Not huge priority, but should be easy to do.
+
+Next priority: Work on payload/command installation and job creation. Figuring out auth model can wait a little bit, once core functionality is finished. 
