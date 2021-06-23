@@ -96,9 +96,47 @@ to quickly create a Cobra application.`,
 			s.Write(msg)
 		})
 
+		mAgent.HandleDisconnect(func(s *melody.Session) {
+		})
+
 		mAgent.HandleMessage(func(s *melody.Session, msg []byte) {
-			log.Info("got agent message")
-			mAdmin.Broadcast(msg)
+			log.Infof("Agent message: %#v", string(msg))
+			body, err := transport.DecodeJson(msg)
+			if err != nil {
+				log.Error(err.Error())
+				return
+			}
+
+			switch body.Type {
+			// case "identity":
+			// 	var ident transport.AgentIdentity
+			// 	mapstructure.Decode(body.Content, &ident)
+			// 	client = &storage.Client{
+			// 		Uuid: ident.Uuid,
+			// 		PublicKeyId: ident.PublicKeyId,
+			// 		PublicKey: ident.PublicKey,
+			// 	}
+			// 	create client, save on session
+			// 	if know the key, send challange
+			// 	else, check validity of ident via configured mechanism
+			// 		those configured mechanisms should be something like "assume they are who they say if we havent seen the key"
+			// 		or "make an http call passing the info we know about the server".
+			// 		for now, just implement the "trust" flow.
+			// 		Challange response should probably be something like:
+			// 			server sends random nonce.
+			// 			agent hashes nonce with salt agent decides.
+			// 			agent signs resulting hash, and sends hash and salt back to server
+			// 			server hashes nonce with salt, and verifies signature.
+			// 			Goal: agent never signs raw value chosen by another, but server can verify key ownership.
+			// case "challangeResponse":
+			// 	check the result of the challange against whats saved on session
+			// case "setStatus":
+			// 	do that
+			// case "output":
+			// 	forward to output handler
+			default:
+				mAdmin.Broadcast(msg)
+			}
 		})
 
 		mAdmin.HandleMessage(func(s *melody.Session, msg []byte) {

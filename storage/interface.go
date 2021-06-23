@@ -12,6 +12,7 @@ import (
 	"context"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 func ConnectDb(ctx context.Context) (context.Context, error) {
@@ -56,6 +57,22 @@ func InitTables(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func SetAgentStatus(ctx context.Context, uuid, status string) error {
+	id, err := GetNodeId(ctx)
+	if err != nil {
+		return err
+	}
+
+	return db(ctx).Model(&Agent{Uuid: uuid}).Updates(&Agent{Status: status, DelegatedServer: id, LastContact: time.Now()}).Error
+}
+
+func SaveAgent(ctx context.Context, agent Agent) error {
+	return db(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "uuid"}},
+		DoUpdates: clause.AssignmentColumns([]string{"public_key", "public_key_id", "delegated_server", "last_contat"}),
+	}).Create(&agent).Error
 }
 
 func GetNodeId(ctx context.Context) (string, error) {
@@ -103,6 +120,12 @@ func SaveServers(ctx context.Context, servs []Server) error {
 }
 
 func GetServer(ctx context.Context, id string) (Server, error) {
+	var serv Server
+	err := db(ctx).Where(Server{Uuid: id}).First(&serv).Error
+	return serv, err
+}
+
+func GetAgent(ctx context.Context, id string) (Server, error) {
 	var serv Server
 	err := db(ctx).Where(Server{Uuid: id}).First(&serv).Error
 	return serv, err

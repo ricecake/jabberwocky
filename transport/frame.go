@@ -11,6 +11,7 @@ type Message struct {
 	Seq      int
 	Time     time.Time
 	Type     string
+	SubType  string // might be useful for telling the type output.  One output type, many output subtypes.
 	Tags     map[string]string
 	Metadata interface{}
 	Content  interface{}
@@ -39,12 +40,12 @@ type ChallangeResponce struct {
 	Response  string
 }
 
-type SetTags struct {
-	Hostname    string
-	AgentId     string
+type AgentIdentity struct {
+	//	Hostname    string // this should just be a tag, but don't want to forget
+	Uuid        string
 	PublicKey   string
 	PublicKeyId string
-	Tags        map[string]string
+	Tags        map[string]string // thses should be pulled from system, as well as merged from config file.  used for payload distribution
 }
 
 type SetStatus struct {
@@ -69,4 +70,10 @@ type ExecOutput struct {
 
 func (m Message) EncodeJson() ([]byte, error) {
 	return json.Marshal(m)
+}
+
+func DecodeJson(msg []byte) (Message, error) {
+	var decoded Message
+	err := json.Unmarshal(msg, &decoded)
+	return decoded, err
 }
