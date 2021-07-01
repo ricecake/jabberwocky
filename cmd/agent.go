@@ -113,6 +113,7 @@ to quickly create a Cobra application.`,
 					servers = append(servers, serv)
 				}
 			}
+			// Need a fallback so that if there's no live servers, we intermitently try every known server.
 
 			hrw := util.NewHrw()
 
@@ -172,6 +173,7 @@ to quickly create a Cobra application.`,
 					err = wsjson.Read(ctx, c, &msg)
 					if err != nil {
 						errors <- err
+						return
 					}
 					input <- msg
 				}
