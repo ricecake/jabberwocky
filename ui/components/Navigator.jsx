@@ -81,7 +81,7 @@ function Navigator(props) {
 						classes.itemCategory
 					)}
 				>
-					HostHatr Admin
+					Jabberwocky Admin
 				</ListItem>
 
 				<NavLink
