@@ -18,6 +18,7 @@ import (
 	"github.com/apex/log"
 	static "github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+	"github.com/ricecake/karma_chameleon/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/olahol/melody.v1"
@@ -78,7 +79,78 @@ to quickly create a Cobra application.`,
 			mAgent.HandleRequest(c.Writer, c.Request)
 		})
 
+		mAdmin.HandleConnect(func(s *melody.Session) {
+			code := util.CompactUUID()
+			log.Infof("Admin Connected %s", code)
+			s.Set("code", code)
+			// this will also want to register something that says that messages for this code go to this websocket.
+			// probably by setting it up in the cluster router.
+			// will need to figure out how to handle closing the channel, and making sure that happens when the websocket closes.
+			// maybe have a function that asks the router to close the channel, and then the websocket listenr listens for channel close, and shuts down the goroutrine? <- yes.
+			channel := cluster.Router.RegisterClient(code)
+			go func() {
+				for {
+					select {
+					case msg, more := <-channel:
+						if !more {
+							log.Infof("Closing %s", code)
+							if !s.IsClosed() {
+								s.Close()
+							}
+							return
+						}
+						log.Infof("Got message for %s: [[%+v]]", code, msg)
+					}
+				}
+			}()
+		})
+
+		mAdmin.HandleDisconnect(func(s *melody.Session) {
+			code := s.MustGet("code").(string)
+			cluster.Router.UnregisterClient(code)
+		})
+
+		mAdmin.HandleMessage(func(s *melody.Session, msg []byte) {
+			code := s.MustGet("code").(string)
+			log.Infof("got admin message %s", code)
+			encMsg := transport.Message{
+				Type: string(msg),
+			}
+			rep, err := encMsg.EncodeJson()
+			if err != nil {
+				log.Error(err.Error())
+			}
+			mAgent.Broadcast(rep)
+			cluster.Router.HandleClientInbound(encMsg)
+		})
+
 		mAgent.HandleConnect(func(s *melody.Session) {
+			code := util.CompactUUID()
+			log.Infof("Agent Connected %s", code)
+			s.Set("code", code)
+			channel := cluster.Router.RegisterAgent(code)
+			go func() {
+				for {
+					select {
+					case msg, more := <-channel:
+						if !more {
+							log.Infof("Closing %s", code)
+							if !s.IsClosed() {
+								s.Close()
+							}
+							return
+						}
+						log.Infof("Got message for %s: [[%+v]]", code, msg)
+						msgRep, err := msg.EncodeJson()
+						if err != nil {
+							log.Error(err.Error())
+							continue
+						}
+						s.Write(msgRep)
+					}
+				}
+			}()
+
 			//This should broadcast a list of agents to the newly connected client, so that it can assess appropriately.
 			log.Info("Websocket established")
 			servers, err := storage.ListLiveServers(ctx)
@@ -97,6 +169,8 @@ to quickly create a Cobra application.`,
 		})
 
 		mAgent.HandleDisconnect(func(s *melody.Session) {
+			code := s.MustGet("code").(string)
+			cluster.Router.UnregisterAgent(code)
 		})
 
 		mAgent.HandleMessage(func(s *melody.Session, msg []byte) {
@@ -135,19 +209,8 @@ to quickly create a Cobra application.`,
 			// case "output":
 			// 	forward to output handler
 			default:
-				mAdmin.Broadcast(msg)
+				cluster.Router.HandleAgentInbound(body)
 			}
-		})
-
-		mAdmin.HandleMessage(func(s *melody.Session, msg []byte) {
-			log.Info("got admin message")
-			rep, err := transport.Message{
-				Type: string(msg),
-			}.EncodeJson()
-			if err != nil {
-				log.Error(err.Error())
-			}
-			mAgent.Broadcast(rep)
 		})
 
 		// Possible to make this use a dynamic self signed cert

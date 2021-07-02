@@ -1,6 +1,8 @@
 package cluster
 
 import (
+	"github.com/apex/log"
+
 	"jabberwocky/transport"
 )
 
@@ -22,7 +24,7 @@ is helpful for server-server, for logging of responsible user, and origin server
 When creating an envelope, it can examine the message it holds, and fill in most of the fields.  Tags are most important.
 */
 
-type Router struct {
+type router struct {
 	processingOutbound chan transport.Message
 
 	clusterInbound  chan transport.Message
@@ -38,10 +40,97 @@ type Router struct {
 	agentOutbound map[string]chan transport.Message
 }
 
-func (r *Router) HandleClusterInbound(msg transport.Message) error { return nil }
-func (r *Router) HandlePeerInbound(msg transport.Message) error    { return nil }
-func (r *Router) HandleClientInbound(msg transport.Message) error  { return nil }
-func (r *Router) HandleAgentInbound(msg transport.Message) error   { return nil }
+func NewRouter() *router {
+	return &router{
+		processingOutbound: make(chan transport.Message),
+
+		clusterInbound:  make(chan transport.Message),
+		clusterOutbound: make(chan transport.Message),
+
+		peerInbound:  make(chan transport.Message),
+		peerOutbound: make(map[string]chan transport.Message),
+
+		clientInbound:  make(chan transport.Message),
+		clientOutbound: make(map[string]chan transport.Message),
+
+		agentInbound:  make(chan transport.Message),
+		agentOutbound: make(map[string]chan transport.Message),
+	}
+}
+
+func (r *router) HandlePeerInbound(msg transport.Message) error { return nil }
+
+func (r *router) HandleAgentInbound(msg transport.Message) error {
+	log.Info("Agent message")
+	return nil
+}
+
+func (r *router) RegisterAgent(code string) chan transport.Message {
+	if agentChan, found := r.agentOutbound[code]; found {
+		return agentChan
+	}
+
+	agentChan := make(chan transport.Message)
+	r.agentOutbound[code] = agentChan
+	return agentChan
+}
+
+func (r *router) UnregisterAgent(code string) {
+	if agentChan, found := r.agentOutbound[code]; found {
+		close(agentChan)
+	}
+}
+
+func (r *router) HandleClientInbound(msg transport.Message) error {
+	log.Infof("Got from client: %+v", msg)
+	r.BroadcastCluster(msg)
+	r.BroadcastAgent(msg)
+	return nil
+}
+
+func (r *router) RegisterClient(code string) chan transport.Message {
+	if clientChan, found := r.clientOutbound[code]; found {
+		return clientChan
+	}
+
+	clientChan := make(chan transport.Message)
+	r.clientOutbound[code] = clientChan
+	return clientChan
+}
+
+func (r *router) UnregisterClient(code string) {
+	if clientChan, found := r.clientOutbound[code]; found {
+		close(clientChan)
+	}
+}
+
+func (r *router) GetClusterOutbound() chan transport.Message {
+	return r.clusterOutbound
+}
+
+func (r *router) HandleClusterInbound(msg transport.Message) error {
+	log.Infof("Got from Cluster: %+v", msg)
+	r.BroadcastAgent(msg)
+	return nil
+}
+
+func (r *router) BroadcastCluster(msg transport.Message) {
+	r.clusterOutbound <- msg
+}
+
+func (r *router) BroadcastAgent(msg transport.Message) {
+	for code, channel := range r.agentOutbound {
+		log.Infof("Broadcasting to agent [%s]", code)
+		channel <- msg
+	}
+}
+
+func (r *router) BroadcastClient(msg transport.Message) {
+	for code, channel := range r.clientOutbound {
+		log.Infof("Broadcasting to client [%s]", code)
+		channel <- msg
+	}
+}
 
 /*
 BroadcastCluster

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 
 	"jabberwocky/storage"
+	"jabberwocky/transport"
 )
 
 var (
@@ -52,6 +53,22 @@ func startGossip(ctx context.Context, eventChan chan MemberEvent) error {
 		},
 		RetransmitMult: 3,
 	}
+
+	go func() {
+		log.Info("Starting broadcast loop")
+		for msg := range Router.GetClusterOutbound() {
+			log.Infof("broadcast %+v", msg)
+			rep, err := msg.EncodeJson()
+			if err != nil {
+				log.Error(err.Error())
+				continue
+			}
+
+			cast := castMsg(rep)
+			broadcasts.QueueBroadcast(cast)
+		}
+		log.Info("Leaving broadcast loop")
+	}()
 
 	go func() {
 		select {
@@ -100,6 +117,14 @@ func (d *delegate) NodeMeta(limit int) []byte {
 }
 
 func (d *delegate) NotifyMsg(b []byte) {
+	msg, err := transport.DecodeJson(b)
+	if err != nil {
+		log.Error(err.Error())
+		return
+	}
+	log.Infof("GOT MESSAGE [[%+v]]", msg)
+	// Do some form of dedupe of the messages
+	Router.HandleClusterInbound(msg)
 }
 
 func (d *delegate) GetBroadcasts(overhead, limit int) [][]byte {

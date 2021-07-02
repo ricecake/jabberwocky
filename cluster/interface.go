@@ -9,8 +9,12 @@ import (
 	"github.com/apex/log"
 )
 
+var Router *router
+
 // TODO: make this accept a channel for "cluster events" so that we can push node up/down to clients when they happen
 func StartCluster(ctx context.Context, eventChan chan MemberEvent) error {
+	Router = NewRouter()
+
 	if err := startGossip(ctx, eventChan); err != nil {
 		return err
 	}
