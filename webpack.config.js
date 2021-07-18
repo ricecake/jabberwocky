@@ -58,7 +58,7 @@ module.exports = {
 		minimize: true,
 		usedExports: true,
 		runtimeChunk: 'single',
-		moduleIds: 'hashed',
+		moduleIds: 'deterministic',
 		splitChunks: {
 			cacheGroups: {
 				react: {

@@ -25,6 +25,8 @@ When creating an envelope, it can examine the message it holds, and fill in most
 */
 
 type router struct {
+	nodeMemberOutbound chan MemberEvent
+
 	processingOutbound chan transport.Message
 
 	clusterInbound  chan transport.Message
@@ -62,6 +64,8 @@ func (r *router) HandlePeerInbound(msg transport.Message) error { return nil }
 
 func (r *router) HandleAgentInbound(msg transport.Message) error {
 	log.Info("Agent message")
+	r.RouteCluster(msg)
+	r.RouteClient(msg)
 	return nil
 }
 
@@ -78,13 +82,14 @@ func (r *router) RegisterAgent(code string) chan transport.Message {
 func (r *router) UnregisterAgent(code string) {
 	if agentChan, found := r.agentOutbound[code]; found {
 		close(agentChan)
+		delete(r.agentOutbound, code)
 	}
 }
 
 func (r *router) HandleClientInbound(msg transport.Message) error {
 	log.Infof("Got from client: %+v", msg)
 	r.BroadcastCluster(msg)
-	r.BroadcastAgent(msg)
+	r.RouteAgent(msg)
 	return nil
 }
 
@@ -101,6 +106,24 @@ func (r *router) RegisterClient(code string) chan transport.Message {
 func (r *router) UnregisterClient(code string) {
 	if clientChan, found := r.clientOutbound[code]; found {
 		close(clientChan)
+		delete(r.clientOutbound, code)
+	}
+}
+
+func (r *router) RegisterPeer(code string) chan transport.Message {
+	if peerChan, found := r.peerOutbound[code]; found {
+		return peerChan
+	}
+
+	peerChan := make(chan transport.Message)
+	r.peerOutbound[code] = peerChan
+	return peerChan
+}
+
+func (r *router) UnregisterPeer(code string) {
+	if peerChan, found := r.peerOutbound[code]; found {
+		close(peerChan)
+		delete(r.peerOutbound, code)
 	}
 }
 
@@ -108,9 +131,15 @@ func (r *router) GetClusterOutbound() chan transport.Message {
 	return r.clusterOutbound
 }
 
-func (r *router) HandleClusterInbound(msg transport.Message) error {
-	log.Infof("Got from Cluster: %+v", msg)
-	r.BroadcastAgent(msg)
+func (r *router) HandleClusterClientInbound(msg transport.Message) error {
+	log.Infof("Got from Cluster client: %+v", msg)
+	r.RouteAgent(msg)
+	return nil
+}
+
+func (r *router) HandleClusterAgentInbound(msg transport.Message) error {
+	log.Infof("Got from Cluster agent: %+v", msg)
+	r.RouteClient(msg)
 	return nil
 }
 
@@ -128,6 +157,19 @@ func (r *router) BroadcastAgent(msg transport.Message) {
 func (r *router) BroadcastClient(msg transport.Message) {
 	for code, channel := range r.clientOutbound {
 		log.Infof("Broadcasting to client [%s]", code)
+		channel <- msg
+	}
+}
+
+func (r *router) RouteAgent(msg transport.Message) {
+	r.BroadcastAgent(msg)
+}
+func (r *router) RouteClient(msg transport.Message) {
+	r.BroadcastClient(msg)
+}
+func (r *router) RouteCluster(msg transport.Message) {
+	for code, channel := range r.peerOutbound {
+		log.Infof("Broadcasting to peer [%s]", code)
 		channel <- msg
 	}
 }
@@ -179,5 +221,33 @@ Then we grab each set for each tag on the command/message, and do an intersectio
 Need to make sure to deduplicate all the lists, to avoid double broadcast.
 
 Agents use different outbound routing, since instead of subscribing to limit what they get, they anounce criteria to see what theyre eligible for.
+
+
+Need a function that handles adding a new peer, and saving it in a lookup table of code->channel used for gossip direct routing.
+Need to make the function that regesters an agent also register it with properties and whatnot in the lookup table. -- probably seperate function for setting those, rather than all in one.
+
+Need methods to RouteToPeer/Agent/Client.  Messages inbound from agent will route to both peer and client, and inbound from peer will route to client.
+
+The cluster bits should setup a goroutine that holds the actual remote server reference, and also hold the channel that's used to send to that server.
+so when a server joins, the peer is registered, which creates the channel, and then sends a message to the member events channel, and returns the channel.  The gossip lib then
+starts a go-routine that listens to that channel, and does a reliable/best-effort message to that server of any messages that it gets.
+
+
+
+
+
+
+
+
+
+
+
+Need to think of a way to more properly handle having methods that say "send this message to all peers.  Send to all relevant agents.  Send to all relevant clients."
+Might need to change the methods to be less about the "semantic" meaning of them, like "RouteCluster", and more to the entent from a user perspective.
+
+BroadcastClients -> BroadcastPeers, routeClients
+etc, etc.
+
+clusterFrames might need more about the meaning of the message.  "this is to clients. this is to peers".  Maybe "this is informative, this is data, this is a command"?
 
 */

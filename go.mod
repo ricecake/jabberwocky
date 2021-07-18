@@ -25,12 +25,14 @@ require (
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/koron/go-ssdp v0.0.2
 	github.com/leodido/go-urn v1.2.1 // indirect
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/miekg/dns v1.1.41 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/onsi/ginkgo v1.15.2
 	github.com/onsi/gomega v1.11.0
 	github.com/pborman/uuid v1.2.1
+	github.com/ricecake/karma_chameleon v0.0.0-20210119201005-e6cac86d64d3
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1

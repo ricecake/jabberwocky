@@ -100,6 +100,12 @@ to quickly create a Cobra application.`,
 							return
 						}
 						log.Infof("Got message for %s: [[%+v]]", code, msg)
+						msgRep, err := msg.EncodeJson()
+						if err != nil {
+							log.Error(err.Error())
+							continue
+						}
+						s.Write(msgRep)
 					}
 				}
 			}()
@@ -256,6 +262,7 @@ to quickly create a Cobra application.`,
 			log.Fatal(err.Error())
 		}
 
+		// This should probably be derived from the cluster.Router object
 		eventChan := make(chan cluster.MemberEvent, 1)
 
 		err = cluster.StartCluster(ctx, eventChan)
@@ -267,6 +274,10 @@ to quickly create a Cobra application.`,
 			select {
 			case event := <-eventChan:
 				log.Infof("NODE: %#v", event)
+				// This should just take transport.Messages, and the gossip layer should announce if it's a server or not.
+				// that way the things that are making changes can label what they are.
+				// Does that then need to be here?  Could the gossip layer dictate that it wants to do a cluster broadcast for composition changes?
+				// then here, we just do a broadcast for new agents, which would just hit the peers.
 				err := storage.SaveServer(ctx, event.Server)
 				if err != nil {
 					log.Error(err.Error())
@@ -279,6 +290,7 @@ to quickly create a Cobra application.`,
 				if err != nil {
 					log.Error(err.Error())
 				}
+				// this should use cluster.Router
 				mAgent.Broadcast(rep)
 			case <-notifyClose:
 				cancel()
