@@ -14,11 +14,11 @@ import (
 const script = `
 print("Starting");
 tail("foobar", function(input) {
-        print("GOT: ", input);
+        print("GOT: " + input);
 });
 
 tail("baz", function(input) {
-        print("Other: ", input);
+        print("Other: " + input);
 });
 
 print("finished");

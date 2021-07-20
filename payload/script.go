@@ -49,7 +49,12 @@ type externPrint struct {
 func (ex *externPrint) Body() exFunc {
 	return func(args ...goja.Value) {
 		for _, i := range args {
-			ex.output <- transport.Message{Type: i.Export().(string)}
+			//ex.output <- transport.Message{Type: i.Export().(string)}
+			ex.output <- transport.Message{
+				Type:    "output",
+				SubType: "log",
+				Content: i.Export().(string),
+			}
 		}
 		fmt.Println(args)
 	}

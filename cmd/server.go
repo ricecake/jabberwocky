@@ -76,7 +76,17 @@ to quickly create a Cobra application.`,
 
 		r.GET("/ws/agent", func(c *gin.Context) {
 			log.Info("Client connection")
-			mAgent.HandleRequest(c.Writer, c.Request)
+			log.Infof("Headers: %+v", c.Request.Header)
+			code := c.Request.Header.Get("Agent-Id")
+			if code == "" {
+				c.Status(403)
+				return
+			}
+			//HandleRequestWithKeys
+			// Can use that to extract auth information from headers, then validate it and populate the Agent object on the session from the get go.
+			mAgent.HandleRequestWithKeys(c.Writer, c.Request, map[string]interface{}{
+				"code": code,
+			})
 		})
 
 		mAdmin.HandleConnect(func(s *melody.Session) {
@@ -131,9 +141,8 @@ to quickly create a Cobra application.`,
 		})
 
 		mAgent.HandleConnect(func(s *melody.Session) {
-			code := util.CompactUUID()
+			code := s.MustGet("code").(string)
 			log.Infof("Agent Connected %s", code)
-			s.Set("code", code)
 			channel := cluster.Router.RegisterAgent(code)
 			go func() {
 				for {

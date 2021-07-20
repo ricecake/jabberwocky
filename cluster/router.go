@@ -192,8 +192,8 @@ type criteriaNode struct {
 	subcriteria []*criteriaNode
 }
 
-this should only basically work with tag based routing.
 Need a method on messages that returns the map of "routing tags"
+this should only basically work with tag based routing.
 that will be the tags, and also the type, subtype, and fields relating to the sub message.
 
 Routing Algorithm:

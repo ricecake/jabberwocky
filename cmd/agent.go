@@ -7,6 +7,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"jabberwocky/payload"
@@ -127,7 +128,12 @@ to quickly create a Cobra application.`,
 
 			log.Infof("picked server [%s]", connUrl.String())
 
-			c, _, err := websocket.Dial(ctx, connUrl.String(), nil)
+			// This should include some fancy headers, to indicate the id of the agent, which can be pulled off by the server.
+			c, _, err := websocket.Dial(ctx, connUrl.String(), &websocket.DialOptions{
+				HTTPHeader: http.Header{
+					"Agent-Id": []string{agentId},
+				},
+			})
 			if err != nil {
 				targetNode.Status = "degraded"
 				storage.SaveServer(ctx, targetNode)
