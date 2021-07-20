@@ -173,6 +173,12 @@ const Home = lazy(() => import('Page/home'));
 export const App = (props) => {
 	const { classes } = props;
 
+	const [mobileOpen, setMobileOpen] = React.useState(false);
+
+	const handleDrawerToggle = () => {
+		setMobileOpen(!mobileOpen);
+	};
+
 	return (
 		<ThemeProvider theme={theme}>
 			<CssBaseline />
@@ -182,6 +188,8 @@ export const App = (props) => {
 						<Navigator
 							PaperProps={{ style: { width: drawerWidth } }}
 							variant="temporary"
+							open={mobileOpen}
+							onClose={handleDrawerToggle}
 						/>
 					</Hidden>
 					<Hidden xsDown implementation="css">
@@ -191,7 +199,7 @@ export const App = (props) => {
 					</Hidden>
 				</nav>
 				<div className={classes.app}>
-					<Header />
+					<Header onDrawerToggle={handleDrawerToggle} />
 					<Suspense fallback={<div>Loading...</div>}>
 						<Switch>
 							<Route path="/">
