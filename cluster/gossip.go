@@ -22,7 +22,7 @@ var (
 )
 
 // This should turn into a generic "new data" message, so "Events", and can be used to relay events as they happen, with sync being used to ensure consistency.
-// The big focus should be on making sure the clients know when a new agent connects.  But all composition events, including jobs and whatnot, need to get forwarded to the cluster, and to the clients.  Should consider something like "AnnounceAgent/Client"? Maybe something with a transport message? 
+// The big focus should be on making sure the clients know when a new agent connects.  But all composition events, including jobs and whatnot, need to get forwarded to the cluster, and to the clients.  Should consider something like "AnnounceAgent/Client"? Maybe something with a transport message?
 type MemberEvent struct {
 	Server storage.Server
 	Leave  bool

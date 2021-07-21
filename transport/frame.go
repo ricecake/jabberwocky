@@ -7,6 +7,7 @@ import (
 
 type Message struct {
 	Id       string
+	SourceId string
 	JobId    string
 	Seq      int
 	Time     time.Time

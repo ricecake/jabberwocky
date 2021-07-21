@@ -25,48 +25,23 @@ When creating an envelope, it can examine the message it holds, and fill in most
 */
 
 type router struct {
-	nodeMemberOutbound chan MemberEvent
-
 	processingOutbound chan transport.Message
-
-	clusterInbound  chan transport.Message
-	clusterOutbound chan transport.Message
-
-	peerInbound  chan transport.Message
-	peerOutbound map[string]chan transport.Message
-
-	clientInbound  chan transport.Message
-	clientOutbound map[string]chan transport.Message
-
-	agentInbound  chan transport.Message
-	agentOutbound map[string]chan transport.Message
+	storageOutbound    chan transport.Message
+	clusterOutbound    chan transport.Message
+	peerOutbound       map[string]chan transport.Message
+	clientOutbound     map[string]chan transport.Message
+	agentOutbound      map[string]chan transport.Message
 }
 
 func NewRouter() *router {
 	return &router{
 		processingOutbound: make(chan transport.Message),
-
-		clusterInbound:  make(chan transport.Message),
-		clusterOutbound: make(chan transport.Message),
-
-		peerInbound:  make(chan transport.Message),
-		peerOutbound: make(map[string]chan transport.Message),
-
-		clientInbound:  make(chan transport.Message),
-		clientOutbound: make(map[string]chan transport.Message),
-
-		agentInbound:  make(chan transport.Message),
-		agentOutbound: make(map[string]chan transport.Message),
+		storageOutbound:    make(chan transport.Message),
+		clusterOutbound:    make(chan transport.Message),
+		peerOutbound:       make(map[string]chan transport.Message),
+		clientOutbound:     make(map[string]chan transport.Message),
+		agentOutbound:      make(map[string]chan transport.Message),
 	}
-}
-
-func (r *router) HandlePeerInbound(msg transport.Message) error { return nil }
-
-func (r *router) HandleAgentInbound(msg transport.Message) error {
-	log.Info("Agent message")
-	r.RouteCluster(msg)
-	r.RouteClient(msg)
-	return nil
 }
 
 func (r *router) RegisterAgent(code string) chan transport.Message {
@@ -84,13 +59,6 @@ func (r *router) UnregisterAgent(code string) {
 		close(agentChan)
 		delete(r.agentOutbound, code)
 	}
-}
-
-func (r *router) HandleClientInbound(msg transport.Message) error {
-	log.Infof("Got from client: %+v", msg)
-	r.BroadcastCluster(msg)
-	r.RouteAgent(msg)
-	return nil
 }
 
 func (r *router) RegisterClient(code string) chan transport.Message {
@@ -127,8 +95,32 @@ func (r *router) UnregisterPeer(code string) {
 	}
 }
 
+func (r *router) HandlePeerInbound(msg transport.Message) error { return nil }
+
+func (r *router) HandleAgentInbound(msg transport.Message) error {
+	log.Info("Agent message")
+	r.RouteCluster(msg)
+	r.RouteClient(msg)
+	return nil
+}
+
+func (r *router) HandleClientInbound(msg transport.Message) error {
+	log.Infof("Got from client: %+v", msg)
+	r.BroadcastCluster(msg)
+	r.RouteAgent(msg)
+	return nil
+}
+
 func (r *router) GetClusterOutbound() chan transport.Message {
 	return r.clusterOutbound
+}
+
+func (r *router) GetStorageOutbound() chan transport.Message {
+	return r.clusterOutbound
+}
+
+func (r *router) GetProcessingOutbound() chan transport.Message {
+	return r.processingOutbound
 }
 
 func (r *router) HandleClusterClientInbound(msg transport.Message) error {
