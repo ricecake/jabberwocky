@@ -7,7 +7,6 @@ import (
 
 	"github.com/apex/log"
 	"github.com/hashicorp/memberlist"
-	"github.com/ricecake/karma_chameleon/util"
 	"github.com/spf13/viper"
 
 	"jabberwocky/storage"
@@ -23,14 +22,10 @@ var (
 
 // This should turn into a generic "new data" message, so "Events", and can be used to relay events as they happen, with sync being used to ensure consistency.
 // The big focus should be on making sure the clients know when a new agent connects.  But all composition events, including jobs and whatnot, need to get forwarded to the cluster, and to the clients.  Should consider something like "AnnounceAgent/Client"? Maybe something with a transport message?
-type MemberEvent struct {
-	Server storage.Server
-	Leave  bool
-}
 
 // NEED TO MAKE ALL CLUSTER MESSAGES BE SIGNED clusterFrame jwts
 
-func startGossip(ctx context.Context, eventChan chan MemberEvent) error {
+func startGossip(ctx context.Context) error {
 	nodeId, err := storage.GetNodeId(ctx)
 	if err != nil {
 		return err
@@ -38,7 +33,6 @@ func startGossip(ctx context.Context, eventChan chan MemberEvent) error {
 
 	handler.ctx = ctx
 	handler.nodeId = nodeId
-	handler.memberEvents = eventChan
 	handler.msgMap = make(map[string]map[string]bool)
 
 	dconf = memberlist.DefaultLANConfig()
@@ -79,7 +73,6 @@ func startGossip(ctx context.Context, eventChan chan MemberEvent) error {
 		select {
 		case <-ctx.Done():
 			shutdownGossip()
-			close(eventChan)
 		}
 	}()
 
@@ -103,10 +96,9 @@ type NodeState struct {
 }
 
 type delegate struct {
-	nodeId       string
-	ctx          context.Context
-	memberEvents chan MemberEvent
-	msgMap       map[string]map[string]bool
+	nodeId string
+	ctx    context.Context
+	msgMap map[string]map[string]bool
 }
 
 func (d *delegate) NodeMeta(limit int) []byte {
@@ -125,36 +117,30 @@ func (d *delegate) NodeMeta(limit int) []byte {
 }
 
 func (d *delegate) NotifyMsg(b []byte) {
-	var frame clusterFrame
+	var frame clusterEnvelope
 	err := json.Unmarshal(b, &frame)
 	if err != nil {
 		log.Error(err.Error())
 		return
 	}
 	ctxLog := log.WithFields(log.Fields{
-		"node": frame.Node,
-		"id":   frame.Id,
+		"server": frame.Server,
+		"id":     frame.Id,
 	})
 
 	ctxLog.Info("Broadcast")
 
-	nodeMap, found := d.msgMap[frame.Node]
+	nodeMap, found := d.msgMap[frame.Server]
 	if !found {
 		ctxLog.Info("Initializing")
 		nodeMap = make(map[string]bool)
-		d.msgMap[frame.Node] = nodeMap
+		d.msgMap[frame.Server] = nodeMap
 	}
 	if !nodeMap[frame.Id] {
 		ctxLog.Info("Forwarding")
 		nodeMap[frame.Id] = true
-		switch frame.Type {
-		case client:
-			Router.HandleClusterClientInbound(frame.Message)
-		case agent:
-			Router.HandleClusterAgentInbound(frame.Message)
-		default:
-			ctxLog.Info("What is this?")
-		}
+
+		Router.Emit(frame.Emitter.ConvertToPeer(), frame.Message)
 	}
 }
 
@@ -225,7 +211,8 @@ func (d *delegate) NotifyJoin(node *memberlist.Node) {
 	state.Status = nodeState(node)
 
 	// this should probably be sending an event to the cluster.Router object.
-	d.memberEvents <- MemberEvent{state, false}
+	Router.Emit(PEER_SERVER, transport.NewMessage("server", "join", state))
+	// d.memberEvents <- MemberEvent{state, false}
 }
 
 func (d *delegate) NotifyLeave(node *memberlist.Node) {
@@ -242,7 +229,8 @@ func (d *delegate) NotifyLeave(node *memberlist.Node) {
 	Router.UnregisterPeer(state.Uuid)
 
 	// this should probably be sending an event to the cluster.Router object.
-	d.memberEvents <- MemberEvent{state, true}
+	Router.Emit(PEER_SERVER, transport.NewMessage("server", "leave", state))
+	// d.memberEvents <- MemberEvent{state, true}
 }
 
 func (d *delegate) NotifyUpdate(node *memberlist.Node) {
@@ -267,13 +255,8 @@ type broadcast struct {
 	msg []byte
 }
 
-func castMsg(msg transport.Message, t frameType) (*broadcast, error) {
-	data, err := json.Marshal(&clusterFrame{
-		Id:      util.CompactUUID(),
-		Type:    t,
-		Node:    handler.nodeId,
-		Message: msg,
-	})
+func castMsg(msg clusterEnvelope, t frameType) (*broadcast, error) {
+	data, err := json.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}

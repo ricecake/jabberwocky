@@ -3,6 +3,8 @@ package cluster
 import (
 	"github.com/apex/log"
 
+	"github.com/ricecake/karma_chameleon/util"
+
 	"jabberwocky/transport"
 )
 
@@ -25,23 +27,37 @@ When creating an envelope, it can examine the message it holds, and fill in most
 */
 
 type router struct {
+	clusterOutbound    chan clusterEnvelope
 	processingOutbound chan transport.Message
 	storageOutbound    chan transport.Message
-	clusterOutbound    chan transport.Message
-	peerOutbound       map[string]chan transport.Message
-	clientOutbound     map[string]chan transport.Message
-	agentOutbound      map[string]chan transport.Message
+
+	peerOutbound   map[string]chan clusterEnvelope
+	clientOutbound map[string]chan transport.Message
+	agentOutbound  map[string]chan transport.Message
 }
 
 func NewRouter() *router {
 	return &router{
-		processingOutbound: make(chan transport.Message),
-		storageOutbound:    make(chan transport.Message),
-		clusterOutbound:    make(chan transport.Message),
-		peerOutbound:       make(map[string]chan transport.Message),
-		clientOutbound:     make(map[string]chan transport.Message),
-		agentOutbound:      make(map[string]chan transport.Message),
+		clusterOutbound:    make(chan clusterEnvelope, 1),
+		processingOutbound: make(chan transport.Message, 1),
+		storageOutbound:    make(chan transport.Message, 1),
+
+		peerOutbound:   make(map[string]chan clusterEnvelope),
+		clientOutbound: make(map[string]chan transport.Message),
+		agentOutbound:  make(map[string]chan transport.Message),
 	}
+}
+
+func (r *router) GetClusterOutbound() chan clusterEnvelope {
+	return r.clusterOutbound
+}
+
+func (r *router) GetStorageOutbound() chan transport.Message {
+	return r.storageOutbound
+}
+
+func (r *router) GetProcessingOutbound() chan transport.Message {
+	return r.processingOutbound
 }
 
 func (r *router) RegisterAgent(code string) chan transport.Message {
@@ -78,12 +94,12 @@ func (r *router) UnregisterClient(code string) {
 	}
 }
 
-func (r *router) RegisterPeer(code string) chan transport.Message {
+func (r *router) RegisterPeer(code string) chan clusterEnvelope {
 	if peerChan, found := r.peerOutbound[code]; found {
 		return peerChan
 	}
 
-	peerChan := make(chan transport.Message)
+	peerChan := make(chan clusterEnvelope)
 	r.peerOutbound[code] = peerChan
 	return peerChan
 }
@@ -95,75 +111,135 @@ func (r *router) UnregisterPeer(code string) {
 	}
 }
 
-func (r *router) HandlePeerInbound(msg transport.Message) error { return nil }
+type Emitter int
 
-func (r *router) HandleAgentInbound(msg transport.Message) error {
-	log.Info("Agent message")
-	r.RouteCluster(msg)
-	r.RouteClient(msg)
-	return nil
+const (
+	LOCAL_CLIENT Emitter = iota
+	LOCAL_AGENT
+	LOCAL_SERVER
+	PEER_CLIENT
+	PEER_AGENT
+	PEER_SERVER
+)
+
+func (e Emitter) String() string {
+	return [...]string{
+		"Local Client",
+		"Local Agent",
+		"Peer Client",
+		"Peer Agent",
+		"Local Server",
+		"Peer Server",
+	}[e]
 }
 
-func (r *router) HandleClientInbound(msg transport.Message) error {
-	log.Infof("Got from client: %+v", msg)
-	r.BroadcastCluster(msg)
-	r.RouteAgent(msg)
-	return nil
+func (e Emitter) ConvertToPeer() Emitter {
+	return [...]Emitter{
+		PEER_CLIENT,
+		PEER_AGENT,
+		PEER_SERVER,
+		PEER_CLIENT,
+		PEER_AGENT,
+		PEER_SERVER,
+	}[e]
 }
 
-func (r *router) GetClusterOutbound() chan transport.Message {
-	return r.clusterOutbound
+type clusterEnvelope struct {
+	Id      string
+	Server  string
+	Emitter Emitter
+	Message transport.Message
 }
 
-func (r *router) GetStorageOutbound() chan transport.Message {
-	return r.clusterOutbound
+func packageMessage(e Emitter, msg transport.Message) clusterEnvelope {
+	return clusterEnvelope{
+		Id:      util.CompactUUID(),
+		Server:  handler.nodeId,
+		Emitter: e,
+		Message: msg,
+	}
 }
 
-func (r *router) GetProcessingOutbound() chan transport.Message {
-	return r.processingOutbound
+// Emit handles all messages.  Might change to "Route"?
+// gossip libs need to convert emitter fields from local to peer before passing to Emit
+func (r *router) Emit(e Emitter, msg transport.Message) {
+	switch e {
+	case LOCAL_CLIENT:
+		//send to storage processing
+		r.storageOutbound <- msg
+		//Brodcast to cluster
+		r.broadcastCluster(e, msg)
+		//Route to local agents
+		r.routeAgent(e, msg)
+	case PEER_CLIENT:
+		//send to storage processing
+		r.storageOutbound <- msg
+		//Route to local agents
+		r.routeAgent(e, msg)
+	case LOCAL_AGENT:
+		// send to output handling
+		r.processingOutbound <- msg
+		// send to storage processing
+		r.storageOutbound <- msg
+		// Route to cluster
+		r.routeCluster(e, msg)
+		// route to local clients
+		r.routeClient(e, msg)
+	case PEER_AGENT:
+		// route to local clients
+		r.routeClient(e, msg)
+	case LOCAL_SERVER:
+		// Local server is feedback from storage/processing mechanism, and agent/client join leave
+		// send to storage processing
+		r.storageOutbound <- msg
+		// broadcast to local clients
+		r.broadcastClient(e, msg)
+	case PEER_SERVER:
+		// peer server messages are cluster composition changes
+		// send to storage processing
+		r.storageOutbound <- msg
+		// broadcast to local clients
+		r.broadcastClient(e, msg)
+		// broadcast to local agents
+		r.broadcastAgent(e, msg)
+	}
 }
 
-func (r *router) HandleClusterClientInbound(msg transport.Message) error {
-	log.Infof("Got from Cluster client: %+v", msg)
-	r.RouteAgent(msg)
-	return nil
-}
+/**
+"Route" is used to indicate that it's passed through a filtering mechanism
+"Broadcast" indicates that it should go to everything.
+Agent and Client messaging is always local
+cluster routing requires servers to aggregate the routes of their clients.
+agent and client routing is discussed below
+**/
 
-func (r *router) HandleClusterAgentInbound(msg transport.Message) error {
-	log.Infof("Got from Cluster agent: %+v", msg)
-	r.RouteClient(msg)
-	return nil
+func (r *router) broadcastCluster(e Emitter, msg transport.Message) {
+	r.clusterOutbound <- packageMessage(e, msg)
 }
-
-func (r *router) BroadcastCluster(msg transport.Message) {
-	r.clusterOutbound <- msg
+func (r *router) broadcastClient(e Emitter, msg transport.Message) {
+	for code, channel := range r.clientOutbound {
+		log.Infof("Broadcasting to client [%s]", code)
+		channel <- msg
+	}
 }
-
-func (r *router) BroadcastAgent(msg transport.Message) {
+func (r *router) broadcastAgent(e Emitter, msg transport.Message) {
 	for code, channel := range r.agentOutbound {
 		log.Infof("Broadcasting to agent [%s]", code)
 		channel <- msg
 	}
 }
 
-func (r *router) BroadcastClient(msg transport.Message) {
-	for code, channel := range r.clientOutbound {
-		log.Infof("Broadcasting to client [%s]", code)
-		channel <- msg
-	}
-}
-
-func (r *router) RouteAgent(msg transport.Message) {
-	r.BroadcastAgent(msg)
-}
-func (r *router) RouteClient(msg transport.Message) {
-	r.BroadcastClient(msg)
-}
-func (r *router) RouteCluster(msg transport.Message) {
+func (r *router) routeCluster(e Emitter, msg transport.Message) {
 	for code, channel := range r.peerOutbound {
 		log.Infof("Broadcasting to peer [%s]", code)
-		channel <- msg
+		channel <- packageMessage(e, msg)
 	}
+}
+func (r *router) routeClient(e Emitter, msg transport.Message) {
+	r.broadcastClient(e, msg)
+}
+func (r *router) routeAgent(e Emitter, msg transport.Message) {
+	r.broadcastAgent(e, msg)
 }
 
 /*
@@ -241,5 +317,29 @@ BroadcastClients -> BroadcastPeers, routeClients
 etc, etc.
 
 clusterFrames might need more about the meaning of the message.  "this is to clients. this is to peers".  Maybe "this is informative, this is data, this is a command"?
+
+
+The register functions should also take objects of what is being registered.  That way it can also emit events about membership changes.
+Might be easier though to just make a new function to "IntroduceAgent", "IntroduceServer", and have those do the routing.
+Also need to add functions that will dtrt when given a message, based on what type it is, and where it's coming from.
+Need to buuld out enums for client/server/agent/peer.  Peer is being used as "other server", while server is "this server".  Not sure the distinction is needed.
+
+The introduction path is good, since it helps consolidate the logic abut where messages get sent into the router, which is where it belongs.
+ConnectClient
+ConnectAgent
+ConnectServer
+DisconnectClient
+DisconnectAgent
+DisconnectServer
+
+HandleInbound(source Emitter, msg transport.Message)
+
+Maybe the actual answer is that when one of those events happens, we just send the message, and include the right type and data to make it make sense?
+Emit(source Emitter, msg transport.Message) and then we just has a "join/leave" message type, with subtypes "agent/server"
+We always emit the message inside a cluster frame, so that we can include info about where it came from.
+a frame from a local agent should be routed to local clients and routed to servers.
+a frame from a peer agent should be routed to local clients
+a frame from a local client should be broadcast to peer servers, and routed to local agents and consumed locally
+a frame from a peer client should be routed to local agents and consumed locally
 
 */

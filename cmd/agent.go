@@ -159,15 +159,19 @@ to quickly create a Cobra application.`,
 							This precludes moving a lot of the "not websocket" logic out of the backoff loop, which should make it behave easier
 							in the desired direction.
 						*/
-						err = wsjson.Write(ctx, c, msg)
-						if err != nil {
-							errors <- err
-						}
 						switch msg.Type {
-						case "shutdown":
-							outerCancel()
-						case "reconnect":
-							errors <- fmt.Errorf("Reconnection")
+						case "control":
+							switch msg.SubType {
+							case "shutdown":
+								outerCancel()
+							case "reconnect":
+								errors <- fmt.Errorf("Reconnection")
+							}
+						default:
+							err = wsjson.Write(ctx, c, msg)
+							if err != nil {
+								errors <- err
+							}
 						}
 					}
 				}

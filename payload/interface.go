@@ -72,6 +72,6 @@ func maybeReconnect(ctx context.Context, output chan transport.Message) {
 
 	newNode := hrw.Get(agentId).(storage.Server)
 	if newNode.Uuid != currentServer.Uuid {
-		output <- transport.Message{Type: "reconnect"}
+		output <- transport.Message{Type: "control", SubType: "reconnect"}
 	}
 }

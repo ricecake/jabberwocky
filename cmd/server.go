@@ -65,18 +65,17 @@ to quickly create a Cobra application.`,
 		}
 
 		r := gin.Default()
-		mAdmin := melody.New()
+		mClient := melody.New()
 		mAgent := melody.New()
 		r.Use(static.Serve("/", EmbedFolder(content, "content")))
 
 		r.GET("/ws/admin", func(c *gin.Context) {
 			log.Info("ws connection")
-			mAdmin.HandleRequest(c.Writer, c.Request)
+			mClient.HandleRequest(c.Writer, c.Request)
 		})
 
 		r.GET("/ws/agent", func(c *gin.Context) {
 			log.Info("Client connection")
-			log.Infof("Headers: %+v", c.Request.Header)
 			code := c.Request.Header.Get("Agent-Id")
 			if code == "" {
 				c.Status(403)
@@ -89,7 +88,7 @@ to quickly create a Cobra application.`,
 			})
 		})
 
-		mAdmin.HandleConnect(func(s *melody.Session) {
+		mClient.HandleConnect(func(s *melody.Session) {
 			code := util.CompactUUID()
 			log.Infof("Admin Connected %s", code)
 			s.Set("code", code)
@@ -119,25 +118,28 @@ to quickly create a Cobra application.`,
 					}
 				}
 			}()
+
+			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("client", "connect", code))
 		})
 
-		mAdmin.HandleDisconnect(func(s *melody.Session) {
+		mClient.HandleDisconnect(func(s *melody.Session) {
 			code := s.MustGet("code").(string)
 			cluster.Router.UnregisterClient(code)
+			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("client", "disconnect", code))
 		})
 
-		mAdmin.HandleMessage(func(s *melody.Session, msg []byte) {
+		mClient.HandleMessage(func(s *melody.Session, msg []byte) {
 			code := s.MustGet("code").(string)
 			log.Infof("got admin message %s", code)
 			encMsg := transport.Message{
 				Type: string(msg),
 			}
-			rep, err := encMsg.EncodeJson()
-			if err != nil {
-				log.Error(err.Error())
-			}
-			mAgent.Broadcast(rep)
-			cluster.Router.HandleClientInbound(encMsg)
+			// rep, err := encMsg.EncodeJson()
+			// if err != nil {
+			// 	log.Error(err.Error())
+			// }
+			// mAgent.Broadcast(rep)
+			cluster.Router.Emit(cluster.LOCAL_CLIENT, encMsg)
 		})
 
 		mAgent.HandleConnect(func(s *melody.Session) {
@@ -166,6 +168,8 @@ to quickly create a Cobra application.`,
 				}
 			}()
 
+			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("agent", "connect", code))
+
 			//This should broadcast a list of agents to the newly connected client, so that it can assess appropriately.
 			log.Info("Websocket established")
 			servers, err := storage.ListLiveServers(ctx)
@@ -186,6 +190,8 @@ to quickly create a Cobra application.`,
 		mAgent.HandleDisconnect(func(s *melody.Session) {
 			code := s.MustGet("code").(string)
 			cluster.Router.UnregisterAgent(code)
+			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("agent", "disconnect", code))
+
 		})
 
 		mAgent.HandleMessage(func(s *melody.Session, msg []byte) {
@@ -224,7 +230,7 @@ to quickly create a Cobra application.`,
 			// case "output":
 			// 	forward to output handler
 			default:
-				cluster.Router.HandleAgentInbound(body)
+				cluster.Router.Emit(cluster.LOCAL_AGENT, body)
 			}
 		})
 
@@ -271,36 +277,43 @@ to quickly create a Cobra application.`,
 			log.Fatal(err.Error())
 		}
 
-		// This should probably be derived from the cluster.Router object
-		eventChan := make(chan cluster.MemberEvent, 1)
-
-		err = cluster.StartCluster(ctx, eventChan)
+		err = cluster.StartCluster(ctx)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 
+		go func() {
+			log.Info("Starting processing loop")
+			for msg := range cluster.Router.GetProcessingOutbound() {
+				log.WithFields(log.Fields{
+					"type":    msg.Type,
+					"subtype": msg.SubType,
+				}).Info("Unknown message type")
+			}
+			log.Info("Leaving processing loop")
+		}()
+
+		go func() {
+			log.Info("Starting storage loop")
+			for msg := range cluster.Router.GetStorageOutbound() {
+				switch msg.Type {
+				case "server":
+					err := storage.SaveServer(ctx, msg.Content.(storage.Server))
+					if err != nil {
+						log.Error(err.Error())
+					}
+				default:
+					log.WithFields(log.Fields{
+						"type":    msg.Type,
+						"subtype": msg.SubType,
+					}).Info("Unknown message type")
+				}
+			}
+			log.Info("Leaving storage loop")
+		}()
+
 		for {
 			select {
-			case event := <-eventChan:
-				log.Infof("NODE: %#v", event)
-				// This should just take transport.Messages, and the gossip layer should announce if it's a server or not.
-				// that way the things that are making changes can label what they are.
-				// Does that then need to be here?  Could the gossip layer dictate that it wants to do a cluster broadcast for composition changes?
-				// then here, we just do a broadcast for new agents, which would just hit the peers.
-				err := storage.SaveServer(ctx, event.Server)
-				if err != nil {
-					log.Error(err.Error())
-				}
-
-				rep, err := transport.Message{
-					Type:    "server",
-					Content: event.Server,
-				}.EncodeJson()
-				if err != nil {
-					log.Error(err.Error())
-				}
-				// this should use cluster.Router
-				mAgent.Broadcast(rep)
 			case <-notifyClose:
 				cancel()
 				log.Info("Shutting down per user request")
