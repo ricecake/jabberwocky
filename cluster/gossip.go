@@ -123,21 +123,13 @@ func (d *delegate) NotifyMsg(b []byte) {
 		log.Error(err.Error())
 		return
 	}
-	ctxLog := log.WithFields(log.Fields{
-		"server": frame.Server,
-		"id":     frame.Id,
-	})
-
-	ctxLog.Info("Broadcast")
 
 	nodeMap, found := d.msgMap[frame.Server]
 	if !found {
-		ctxLog.Info("Initializing")
 		nodeMap = make(map[string]bool)
 		d.msgMap[frame.Server] = nodeMap
 	}
 	if !nodeMap[frame.Id] {
-		ctxLog.Info("Forwarding")
 		nodeMap[frame.Id] = true
 
 		Router.Emit(frame.Emitter.ConvertToPeer(), frame.Message)
@@ -200,7 +192,6 @@ func (d *delegate) NotifyJoin(node *memberlist.Node) {
 					log.Error(err.Error())
 					continue
 				}
-				log.Infof("SENDING TO PEER [[%+v]]", msg)
 				mlist.SendReliable(node, cast.Message())
 			}
 		}()

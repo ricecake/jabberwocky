@@ -70,12 +70,10 @@ to quickly create a Cobra application.`,
 		r.Use(static.Serve("/", EmbedFolder(content, "content")))
 
 		r.GET("/ws/admin", func(c *gin.Context) {
-			log.Info("ws connection")
 			mClient.HandleRequest(c.Writer, c.Request)
 		})
 
 		r.GET("/ws/agent", func(c *gin.Context) {
-			log.Info("Client connection")
 			code := c.Request.Header.Get("Agent-Id")
 			if code == "" {
 				c.Status(403)
@@ -108,7 +106,7 @@ to quickly create a Cobra application.`,
 							}
 							return
 						}
-						log.Infof("Got message for %s: [[%+v]]", code, msg)
+
 						msgRep, err := msg.EncodeJson()
 						if err != nil {
 							log.Error(err.Error())
@@ -130,9 +128,9 @@ to quickly create a Cobra application.`,
 
 		mClient.HandleMessage(func(s *melody.Session, msg []byte) {
 			code := s.MustGet("code").(string)
-			log.Infof("got admin message %s", code)
 			encMsg := transport.Message{
-				Type: string(msg),
+				SourceId: code,
+				Type:     string(msg),
 			}
 			// rep, err := encMsg.EncodeJson()
 			// if err != nil {
@@ -157,7 +155,7 @@ to quickly create a Cobra application.`,
 							}
 							return
 						}
-						log.Infof("Got message for %s: [[%+v]]", code, msg)
+
 						msgRep, err := msg.EncodeJson()
 						if err != nil {
 							log.Error(err.Error())
@@ -169,22 +167,6 @@ to quickly create a Cobra application.`,
 			}()
 
 			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("agent", "connect", code))
-
-			//This should broadcast a list of agents to the newly connected client, so that it can assess appropriately.
-			log.Info("Websocket established")
-			servers, err := storage.ListLiveServers(ctx)
-			if err != nil {
-				log.Error(err.Error())
-			}
-
-			msg, err := transport.Message{
-				Type:    "serverList",
-				Content: servers,
-			}.EncodeJson()
-			if err != nil {
-				log.Error(err.Error())
-			}
-			s.Write(msg)
 		})
 
 		mAgent.HandleDisconnect(func(s *melody.Session) {
@@ -195,7 +177,6 @@ to quickly create a Cobra application.`,
 		})
 
 		mAgent.HandleMessage(func(s *melody.Session, msg []byte) {
-			log.Infof("Agent message: %#v", string(msg))
 			body, err := transport.DecodeJson(msg)
 			if err != nil {
 				log.Error(err.Error())
@@ -302,6 +283,18 @@ to quickly create a Cobra application.`,
 					if err != nil {
 						log.Error(err.Error())
 					}
+				case "agent":
+					switch msg.SubType {
+					case "connect":
+						servers, err := storage.ListLiveServers(ctx)
+						if err != nil {
+							log.Error(err.Error())
+						}
+
+						srvList := transport.NewMessage("server", "list", servers)
+						cluster.Router.Send(msg.Content.(string), cluster.LOCAL_AGENT, srvList)
+					}
+
 				default:
 					log.WithFields(log.Fields{
 						"type":    msg.Type,
@@ -326,16 +319,6 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(serverCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// serverCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serverCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 type embedFileSystem struct {

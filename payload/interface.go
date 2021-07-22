@@ -25,21 +25,36 @@ print("finished");
 `
 
 func Execute(ctx context.Context, msg transport.Message, output chan transport.Message) {
-	log.Infof("%+v\n", msg)
-	msg.Seq++
 	payloadCtx, cancel := context.WithCancel(ctx)
 
 	switch msg.Type {
 	case "server":
-		var serv storage.Server
-		mapstructure.Decode(msg.Content, &serv)
-		storage.SaveServer(ctx, serv)
-		maybeReconnect(ctx, output)
-	case "serverList":
-		var servs []storage.Server
-		mapstructure.Decode(msg.Content, &servs)
-		storage.SaveServers(ctx, servs)
-		maybeReconnect(ctx, output)
+		switch msg.SubType {
+		case "list":
+			var servs []storage.Server
+			mapstructure.Decode(msg.Content, &servs)
+			err := storage.SaveServers(ctx, servs)
+			if err != nil {
+				log.Error(err.Error())
+			}
+			maybeReconnect(ctx, output)
+		case "join":
+			var serv storage.Server
+			mapstructure.Decode(msg.Content, &serv)
+			err := storage.SaveServer(ctx, serv)
+			if err != nil {
+				log.Error(err.Error())
+			}
+			maybeReconnect(ctx, output)
+		case "leave":
+			var serv storage.Server
+			mapstructure.Decode(msg.Content, &serv)
+			err := storage.SaveServer(ctx, serv)
+			if err != nil {
+				log.Error(err.Error())
+			}
+			maybeReconnect(ctx, output)
+		}
 	case "script":
 		go func() {
 			runScript(payloadCtx, script, output)

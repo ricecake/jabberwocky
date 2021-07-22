@@ -66,11 +66,10 @@ to quickly create a Cobra application.`,
 		input := make(chan transport.Message)
 
 		go func() {
-		CBLOOP:
 			for {
 				select {
 				case <-outerCtx.Done():
-					break CBLOOP
+					return
 				case msg := <-input:
 					payload.Execute(outerCtx, msg, output)
 				}
@@ -82,6 +81,9 @@ to quickly create a Cobra application.`,
 			errors := make(chan error)
 			ctx, cancel := context.WithCancel(outerCtx)
 			defer cancel()
+
+			serversList, _ := storage.ListLiveServers(ctx)
+			log.Infof("SERVERS %+v", serversList)
 
 			//TODO: use rendezvous hashing to pick server
 			//      need to make sure that our "seed node" from the config/dns/wherever is in there, since db only has "seen" nodes from cluster.
@@ -144,11 +146,10 @@ to quickly create a Cobra application.`,
 			log.Info("Connected to server")
 
 			go func() {
-			output:
 				for {
 					select {
 					case <-ctx.Done():
-						break output
+						return
 					case msg := <-output:
 						/*
 							There should we a handler here that will check for the type of the message, and if it's a control message,

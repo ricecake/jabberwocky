@@ -1,8 +1,6 @@
 package cluster
 
 import (
-	"github.com/apex/log"
-
 	"github.com/ricecake/karma_chameleon/util"
 
 	"jabberwocky/transport"
@@ -160,6 +158,19 @@ func packageMessage(e Emitter, msg transport.Message) clusterEnvelope {
 	}
 }
 
+func (r *router) Send(code string, e Emitter, msg transport.Message) {
+	switch e {
+	case LOCAL_CLIENT:
+		if clientChan, found := r.clientOutbound[code]; found {
+			clientChan <- msg
+		}
+	case LOCAL_AGENT:
+		if agentChan, found := r.agentOutbound[code]; found {
+			agentChan <- msg
+		}
+	}
+}
+
 // Emit handles all messages.  Might change to "Route"?
 // gossip libs need to convert emitter fields from local to peer before passing to Emit
 func (r *router) Emit(e Emitter, msg transport.Message) {
@@ -217,21 +228,18 @@ func (r *router) broadcastCluster(e Emitter, msg transport.Message) {
 	r.clusterOutbound <- packageMessage(e, msg)
 }
 func (r *router) broadcastClient(e Emitter, msg transport.Message) {
-	for code, channel := range r.clientOutbound {
-		log.Infof("Broadcasting to client [%s]", code)
+	for _, channel := range r.clientOutbound {
 		channel <- msg
 	}
 }
 func (r *router) broadcastAgent(e Emitter, msg transport.Message) {
-	for code, channel := range r.agentOutbound {
-		log.Infof("Broadcasting to agent [%s]", code)
+	for _, channel := range r.agentOutbound {
 		channel <- msg
 	}
 }
 
 func (r *router) routeCluster(e Emitter, msg transport.Message) {
-	for code, channel := range r.peerOutbound {
-		log.Infof("Broadcasting to peer [%s]", code)
+	for _, channel := range r.peerOutbound {
 		channel <- packageMessage(e, msg)
 	}
 }
