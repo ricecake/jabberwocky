@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/apex/log"
@@ -325,11 +327,29 @@ type embedFileSystem struct {
 	http.FileSystem
 }
 
-func (e embedFileSystem) Exists(prefix string, path string) bool {
-	_, err := e.Open(path)
+func (e embedFileSystem) Exists(prefix string, reqPath string) bool {
+	if reqPath != "/" {
+		reqPath = strings.TrimSuffix(reqPath, "/")
+	}
+
+	file, err := e.Open(reqPath)
 	if err != nil {
 		return false
 	}
+
+	stats, err := file.Stat()
+	if err != nil {
+		return false
+	}
+
+	if stats.IsDir() {
+		index := path.Join(reqPath, "index.html")
+		_, err := e.Open(index)
+		if err != nil {
+			return false
+		}
+	}
+
 	return true
 }
 

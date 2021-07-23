@@ -2,6 +2,8 @@ all: format lint compile test
 
 compile: deps build
 
+quick: js-build go-build
+
 test:
 	go test -v ./...
 

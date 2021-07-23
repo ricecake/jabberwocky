@@ -13,15 +13,20 @@ import PeopleIcon from '@material-ui/icons/People';
 import PublicIcon from '@material-ui/icons/Public';
 import SettingsInputComponentIcon from '@material-ui/icons/SettingsInputComponent';
 import TimerIcon from '@material-ui/icons/Timer';
+import CreateIcon from '@material-ui/icons/Create';
 import SettingsIcon from '@material-ui/icons/Settings';
 import PhonelinkSetupIcon from '@material-ui/icons/PhonelinkSetup';
+import IconButton from '@material-ui/core/IconButton';
+import MenuIcon from '@material-ui/icons/Menu';
+import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
+import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 
 import { BrowserRouter as Router, NavLink } from 'react-router-dom';
 
 const categories = [
 	{
-		id: 'Payloads',
-		children: [],
+		id: 'Payload',
+		children: [{ id: 'Create', icon: <CreateIcon /> }],
 	},
 ];
 
@@ -116,6 +121,7 @@ function Navigator(props) {
 						</NavLink>
 						{children.map(({ id: childId, icon, active }) => (
 							<NavLink
+								key={childId}
 								to={`/${id}/${childId}/`.toLowerCase()}
 								activeClassName={classes.itemActiveItem}
 								className={classes.item}

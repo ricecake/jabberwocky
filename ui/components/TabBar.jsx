@@ -8,8 +8,8 @@ import { HashRouter as Router, NavLink, withRouter } from 'react-router-dom';
 
 import { Show } from 'Component/Helpers';
 
-const RouterTabs = withRouter((props) => (
-	<Tabs value={props.location.pathname} {...props}>
+const RouterTabs = withRouter(({ location, staticContext, ...props }) => (
+	<Tabs value={location.pathname} {...props}>
 		{props.children}
 	</Tabs>
 ));
@@ -62,6 +62,7 @@ function TabBar(props) {
 								}))
 								.map(({ label, value }) => (
 									<Tab
+										key={label}
 										textColor="inherit"
 										label={label}
 										value={`/${value}`}

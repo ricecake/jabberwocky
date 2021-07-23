@@ -18,6 +18,7 @@ let theme = createMuiTheme({
 			light: '#63ccff',
 			main: '#009be5',
 			dark: '#006db3',
+			background: '#18202c',
 		},
 	},
 	typography: {
@@ -155,20 +156,9 @@ import Navigator from 'Component/Navigator';
 import Header from 'Component/Header';
 
 const Home = lazy(() => import('Page/home'));
-// const Admin = lazy(() => import('Page/admin'));
 
-// const Splc = lazy(() => import('Page/splc'));
-// const SplcCategories = lazy(() => import('Page/splc/categories'));
-// const SplcGroups = lazy(() => import('Page/splc/groups'));
-// const SplcDomains = lazy(() => import('Page/splc/domains'));
-
-// const Hosting = lazy(() => import('Page/hosting'));
-// const HostingWebhosts = lazy(() => import('Page/hosting/webhosts'));
-// const HostingAddresses = lazy(() => import('Page/hosting/addresses'));
-
-// const Media = lazy(() => import('Page/media'));
-// const MediaTemplates = lazy(() => import('Page/media/templates'));
-// const MediaTweets = lazy(() => import('Page/media/tweets'));
+const Payload = lazy(() => import('Page/payload'));
+const PayloadCreate = lazy(() => import('Page/payload/create'));
 
 export const App = (props) => {
 	const { classes } = props;
@@ -202,6 +192,13 @@ export const App = (props) => {
 					<Header onDrawerToggle={handleDrawerToggle} />
 					<Suspense fallback={<div>Loading...</div>}>
 						<Switch>
+							<Route path="/payload/create">
+								<PayloadCreate />
+							</Route>
+							<Route path="/payload/">
+								<Payload />
+							</Route>
+
 							<Route path="/">
 								<Home />
 							</Route>
