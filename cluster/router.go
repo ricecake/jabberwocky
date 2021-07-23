@@ -1,6 +1,8 @@
 package cluster
 
 import (
+	"sync"
+
 	"github.com/ricecake/karma_chameleon/util"
 
 	"jabberwocky/transport"
@@ -24,7 +26,12 @@ is helpful for server-server, for logging of responsible user, and origin server
 When creating an envelope, it can examine the message it holds, and fill in most of the fields.  Tags are most important.
 */
 
+//THESE SHOULD BE SYNC RWMutex
 type router struct {
+	peerLock   *sync.RWMutex
+	clientLock *sync.RWMutex
+	agentLock  *sync.RWMutex
+
 	clusterOutbound    chan clusterEnvelope
 	processingOutbound chan transport.Message
 	storageOutbound    chan transport.Message
@@ -36,6 +43,10 @@ type router struct {
 
 func NewRouter() *router {
 	return &router{
+		peerLock:   &sync.RWMutex{},
+		clientLock: &sync.RWMutex{},
+		agentLock:  &sync.RWMutex{},
+
 		clusterOutbound:    make(chan clusterEnvelope, 1),
 		processingOutbound: make(chan transport.Message, 1),
 		storageOutbound:    make(chan transport.Message, 1),
@@ -59,6 +70,9 @@ func (r *router) GetProcessingOutbound() chan transport.Message {
 }
 
 func (r *router) RegisterAgent(code string) chan transport.Message {
+	r.agentLock.Lock()
+	defer r.agentLock.Unlock()
+
 	if agentChan, found := r.agentOutbound[code]; found {
 		return agentChan
 	}
@@ -69,6 +83,9 @@ func (r *router) RegisterAgent(code string) chan transport.Message {
 }
 
 func (r *router) UnregisterAgent(code string) {
+	r.agentLock.Lock()
+	defer r.agentLock.Unlock()
+
 	if agentChan, found := r.agentOutbound[code]; found {
 		close(agentChan)
 		delete(r.agentOutbound, code)
@@ -76,6 +93,9 @@ func (r *router) UnregisterAgent(code string) {
 }
 
 func (r *router) RegisterClient(code string) chan transport.Message {
+	r.clientLock.Lock()
+	defer r.clientLock.Unlock()
+
 	if clientChan, found := r.clientOutbound[code]; found {
 		return clientChan
 	}
@@ -86,6 +106,9 @@ func (r *router) RegisterClient(code string) chan transport.Message {
 }
 
 func (r *router) UnregisterClient(code string) {
+	r.clientLock.Lock()
+	defer r.clientLock.Unlock()
+
 	if clientChan, found := r.clientOutbound[code]; found {
 		close(clientChan)
 		delete(r.clientOutbound, code)
@@ -93,6 +116,9 @@ func (r *router) UnregisterClient(code string) {
 }
 
 func (r *router) RegisterPeer(code string) chan clusterEnvelope {
+	r.peerLock.Lock()
+	defer r.peerLock.Unlock()
+
 	if peerChan, found := r.peerOutbound[code]; found {
 		return peerChan
 	}
@@ -103,6 +129,9 @@ func (r *router) RegisterPeer(code string) chan clusterEnvelope {
 }
 
 func (r *router) UnregisterPeer(code string) {
+	r.peerLock.Lock()
+	defer r.peerLock.Unlock()
+
 	if peerChan, found := r.peerOutbound[code]; found {
 		close(peerChan)
 		delete(r.peerOutbound, code)
@@ -161,10 +190,14 @@ func packageMessage(e Emitter, msg transport.Message) clusterEnvelope {
 func (r *router) Send(code string, e Emitter, msg transport.Message) {
 	switch e {
 	case LOCAL_CLIENT:
+		r.clientLock.RLock()
+		defer r.clientLock.RUnlock()
 		if clientChan, found := r.clientOutbound[code]; found {
 			clientChan <- msg
 		}
 	case LOCAL_AGENT:
+		r.agentLock.RLock()
+		defer r.agentLock.RUnlock()
 		if agentChan, found := r.agentOutbound[code]; found {
 			agentChan <- msg
 		}
@@ -228,17 +261,23 @@ func (r *router) broadcastCluster(e Emitter, msg transport.Message) {
 	r.clusterOutbound <- packageMessage(e, msg)
 }
 func (r *router) broadcastClient(e Emitter, msg transport.Message) {
+	r.clientLock.RLock()
+	defer r.clientLock.RUnlock()
 	for _, channel := range r.clientOutbound {
 		channel <- msg
 	}
 }
 func (r *router) broadcastAgent(e Emitter, msg transport.Message) {
+	r.agentLock.RLock()
+	defer r.agentLock.RUnlock()
 	for _, channel := range r.agentOutbound {
 		channel <- msg
 	}
 }
 
 func (r *router) routeCluster(e Emitter, msg transport.Message) {
+	r.peerLock.RLock()
+	defer r.peerLock.RUnlock()
 	for _, channel := range r.peerOutbound {
 		channel <- packageMessage(e, msg)
 	}

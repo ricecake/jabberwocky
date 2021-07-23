@@ -3,6 +3,7 @@ package cluster
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/apex/log"
@@ -33,7 +34,8 @@ func startGossip(ctx context.Context) error {
 
 	handler.ctx = ctx
 	handler.nodeId = nodeId
-	handler.msgMap = make(map[string]map[string]bool)
+	handler.nodeMap = make(map[string]map[string]bool)
+	handler.lock = &sync.RWMutex{}
 
 	dconf = memberlist.DefaultLANConfig()
 	dconf.BindPort = viper.GetInt("server.gossip_port")
@@ -96,9 +98,10 @@ type NodeState struct {
 }
 
 type delegate struct {
-	nodeId string
-	ctx    context.Context
-	msgMap map[string]map[string]bool
+	nodeId  string
+	ctx     context.Context
+	lock    *sync.RWMutex
+	nodeMap map[string]map[string]bool
 }
 
 func (d *delegate) NodeMeta(limit int) []byte {
@@ -124,13 +127,23 @@ func (d *delegate) NotifyMsg(b []byte) {
 		return
 	}
 
-	nodeMap, found := d.msgMap[frame.Server]
+	d.lock.RLock()
+	msgMap, found := d.nodeMap[frame.Server]
+	d.lock.RUnlock()
 	if !found {
-		nodeMap = make(map[string]bool)
-		d.msgMap[frame.Server] = nodeMap
+		msgMap = make(map[string]bool)
+		d.lock.Lock()
+		d.nodeMap[frame.Server] = msgMap
+		d.lock.Unlock()
 	}
-	if !nodeMap[frame.Id] {
-		nodeMap[frame.Id] = true
+
+	d.lock.RLock()
+	seen := msgMap[frame.Id]
+	d.lock.RUnlock()
+	if !seen {
+		d.lock.Lock()
+		msgMap[frame.Id] = true
+		d.lock.Unlock()
 
 		Router.Emit(frame.Emitter.ConvertToPeer(), frame.Message)
 	}
@@ -166,7 +179,9 @@ func (d *delegate) MergeRemoteState(buf []byte, join bool) {
 		return
 	}
 
-	d.msgMap[state.State.Uuid] = make(map[string]bool)
+	d.lock.Lock()
+	d.nodeMap[state.State.Uuid] = make(map[string]bool)
+	d.lock.Unlock()
 
 	if err := storage.SaveServer(d.ctx, state.State); err != nil {
 		log.Error(err.Error())
@@ -197,7 +212,9 @@ func (d *delegate) NotifyJoin(node *memberlist.Node) {
 		}()
 	}
 
-	d.msgMap[state.Uuid] = make(map[string]bool)
+	d.lock.Lock()
+	d.nodeMap[state.Uuid] = make(map[string]bool)
+	d.lock.Unlock()
 
 	state.Status = nodeState(node)
 
@@ -216,7 +233,9 @@ func (d *delegate) NotifyLeave(node *memberlist.Node) {
 	}
 
 	state.Status = "offline"
-	delete(d.msgMap, state.Uuid)
+	d.lock.Lock()
+	delete(d.nodeMap, state.Uuid)
+	d.lock.Unlock()
 	Router.UnregisterPeer(state.Uuid)
 
 	// this should probably be sending an event to the cluster.Router object.
