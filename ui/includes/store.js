@@ -18,9 +18,9 @@ const loggerMiddleware = (store) => (next) => (action) => {
 const initialState = {};
 
 const createStoreWithMiddleware = compose(
-	applyMiddleware(reduxWebsocketMiddleware),
+	applyMiddleware(ReduxThunk),
 	applyMiddleware(loggerMiddleware),
-	applyMiddleware(ReduxThunk)
+	applyMiddleware(reduxWebsocketMiddleware)
 )(createStore);
 
 const store = createStoreWithMiddleware(reducer, initialState);
