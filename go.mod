@@ -6,6 +6,7 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/armon/go-metrics v0.3.6 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.0
+	github.com/davecgh/go-spew v1.1.1
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/dop251/goja v0.0.0-20210317175251-bb14c2267b76
 	github.com/gin-contrib/static v0.0.0-20200916080430-d45d9a37d28e

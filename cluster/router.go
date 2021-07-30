@@ -1,8 +1,10 @@
 package cluster
 
 import (
+	"sort"
 	"sync"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ricecake/karma_chameleon/util"
 
 	"jabberwocky/transport"
@@ -32,6 +34,8 @@ type router struct {
 	clientLock *sync.RWMutex
 	agentLock  *sync.RWMutex
 
+	subRouter *SubsetRouter
+
 	clusterOutbound    chan clusterEnvelope
 	processingOutbound chan transport.Message
 	storageOutbound    chan transport.Message
@@ -47,6 +51,8 @@ func NewRouter() *router {
 		clientLock: &sync.RWMutex{},
 		agentLock:  &sync.RWMutex{},
 
+		subRouter: NewSubsetRouter(),
+
 		clusterOutbound:    make(chan clusterEnvelope, 1),
 		processingOutbound: make(chan transport.Message, 1),
 		storageOutbound:    make(chan transport.Message, 1),
@@ -55,6 +61,10 @@ func NewRouter() *router {
 		clientOutbound: make(map[string]chan transport.Message),
 		agentOutbound:  make(map[string]chan transport.Message),
 	}
+}
+
+func (r *router) Dump() {
+	spew.Dump(r)
 }
 
 func (r *router) GetClusterOutbound() chan clusterEnvelope {
@@ -287,6 +297,127 @@ func (r *router) routeClient(e Emitter, msg transport.Message) {
 }
 func (r *router) routeAgent(e Emitter, msg transport.Message) {
 	r.broadcastAgent(e, msg)
+}
+
+func (r *router) AddAgentBinding(code string, binding map[string]string) {} //Superset binding -- all msg tags in binding
+
+func (r *router) AddClientBinding(code string, binding map[string]string) {
+	r.subRouter.AddBind(Destination{
+		Role: LOCAL_CLIENT,
+		Code: code,
+	}, binding)
+
+} // subset binding -- all bindings in msg tags
+
+func (r *router) AddServerBinding(code string, binding map[string]string) {} // subset binding -- all bindings in msg tags
+
+type bindEntry struct {
+	key   string
+	value string
+}
+type Destination struct {
+	Role Emitter
+	Code string
+}
+
+type SubsetRouter struct {
+	root *subsetRouteNode
+}
+
+func NewSubsetRouter() *SubsetRouter {
+	return &SubsetRouter{
+		root: &subsetRouteNode{
+			subnode: make(map[string]map[string]*subsetRouteNode),
+		},
+	}
+}
+
+type subsetRouteNode struct {
+	bind        bindEntry
+	subscribers []Destination
+	subnode     map[string]map[string]*subsetRouteNode
+}
+
+func (sr *SubsetRouter) Dump() {
+	spew.Dump(sr)
+}
+
+func linearizeTags(bind map[string]string) (bindings []bindEntry) {
+	for k, v := range bind {
+		bindings = append(bindings, bindEntry{key: k, value: v})
+	}
+
+	sort.Slice(bindings, func(i, j int) bool {
+		if bindings[i].key != bindings[j].key {
+			return bindings[i].key < bindings[j].key
+		}
+		return bindings[i].value < bindings[j].value
+	}) // this should also sort by values, if the keys are equal.
+
+	return
+}
+
+func (sr *SubsetRouter) AddBind(dest Destination, binding map[string]string) {
+	if len(binding) == 0 {
+		sr.root.subscribers = append(sr.root.subscribers, dest)
+		return
+	}
+
+	bindings := linearizeTags(binding)
+
+	node := sr.root
+	for _, v := range bindings {
+		var found bool
+		var valMap map[string]*subsetRouteNode
+		if valMap, found = node.subnode[v.key]; !found {
+			valMap = make(map[string]*subsetRouteNode)
+			node.subnode[v.key] = valMap
+		}
+
+		var subnode *subsetRouteNode
+		if subnode, found = valMap[v.value]; !found {
+			subnode = &subsetRouteNode{
+				subnode: make(map[string]map[string]*subsetRouteNode),
+				bind:    bindEntry{key: v.key, value: v.value},
+			}
+			valMap[v.value] = subnode
+		}
+
+		node = subnode
+	}
+
+	node.subscribers = append(node.subscribers, dest)
+}
+
+func (sr *SubsetRouter) Route(tags map[string]string) (destinations []Destination) {
+	if len(tags) == 0 {
+		destinations = append(destinations, sr.root.subscribers...)
+		return
+	}
+
+	type searchPath struct {
+		node  *subsetRouteNode
+		check []bindEntry
+	}
+
+	bindings := linearizeTags(tags)
+	searchSpace := []searchPath{searchPath{sr.root, bindings}}
+
+	for len(searchSpace) != 0 {
+		item := searchSpace[0]
+		searchSpace = searchSpace[1:]
+
+		destinations = append(destinations, item.node.subscribers...)
+		for index, bind := range item.check {
+			if valMap, found := item.node.subnode[bind.key]; found {
+				if subnode, found := valMap[bind.value]; found {
+					searchSpace = append(searchSpace, searchPath{subnode, item.check[index+1:]})
+				}
+			}
+		}
+	}
+
+	return
 }
 
 /*
