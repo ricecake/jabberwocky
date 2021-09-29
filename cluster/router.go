@@ -163,9 +163,9 @@ func (e Emitter) String() string {
 	return [...]string{
 		"Local Client",
 		"Local Agent",
+		"Local Server",
 		"Peer Client",
 		"Peer Agent",
-		"Local Server",
 		"Peer Server",
 	}[e]
 }
@@ -178,6 +178,17 @@ func (e Emitter) ConvertToPeer() Emitter {
 		PEER_CLIENT,
 		PEER_AGENT,
 		PEER_SERVER,
+	}[e]
+}
+
+func (e Emitter) IsLocal() bool {
+	return [...]bool{
+		true,
+		true,
+		true,
+		false,
+		false,
+		false,
 	}[e]
 }
 
@@ -353,6 +364,45 @@ func linearizeTags(bind map[string]string) (bindings []bindEntry) {
 		}
 		return bindings[i].value < bindings[j].value
 	}) // this should also sort by values, if the keys are equal.
+
+	return
+}
+
+func copyTagMap(original map[string]string) map[string]string {
+	copy := make(map[string]string)
+	for key, value := range original {
+		copy[key] = value
+	}
+	return copy
+}
+
+func (sr *SubsetRouter) ListLocalBinding() (output []map[string]string) { // This should be made to only emit binding for things that aren't remote.
+	type searchNode struct {
+		node  *subsetRouteNode
+		state map[string]string
+	}
+
+	searchSpace := []searchNode{searchNode{sr.root, make(map[string]string)}}
+
+	for len(searchSpace) != 0 {
+		item := searchSpace[0]
+		searchSpace = searchSpace[1:]
+
+		for _, subscriber := range item.node.subscribers {
+			if subscriber.Role.IsLocal() {
+				output = append(output, copyTagMap(item.state))
+				break
+			}
+		}
+
+		for key, valueMap := range item.node.subnode {
+			for value, subnode := range valueMap {
+				state := copyTagMap(item.state)
+				state[key] = value
+				searchSpace = append(searchSpace, searchNode{subnode, state})
+			}
+		}
+	}
 
 	return
 }

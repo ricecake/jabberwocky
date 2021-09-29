@@ -40,6 +40,10 @@ var _ = Describe("Router", func() {
 		var subRouter *cluster.SubsetRouter
 		var dests []cluster.Destination
 
+		BeforeEach(func() {
+			dests = []cluster.Destination{}
+		})
+
 		JustBeforeEach(func() {
 			subRouter = cluster.NewSubsetRouter()
 		})
@@ -53,6 +57,7 @@ var _ = Describe("Router", func() {
 					})
 				}
 			})
+
 			It("handles catch-all with emtpy tags", func() {
 				By("Adding empty route")
 				subRouter.AddBind(dests[0], map[string]string{})
@@ -92,6 +97,28 @@ var _ = Describe("Router", func() {
 				subRouter.AddBind(dests[0], map[string]string{"a": "b", "c": "d"})
 				routes := subRouter.Route(map[string]string{"a": "b", "e": "f"})
 				Expect(routes).Should(BeEmpty())
+			})
+
+			It("Can list tags", func() {
+				tags := make(map[string]string)
+
+				subRouter.AddBind(dests[0], map[string]string{})
+
+				for _, dest := range dests {
+					tags[dest.Code] = dest.Code
+					subRouter.AddBind(dest, tags)
+				}
+
+				subRouter.AddBind(cluster.Destination{
+					Role: cluster.PEER_AGENT,
+					Code: "Example",
+				}, map[string]string{"Test": "Data"})
+
+				localBindings := subRouter.ListLocalBinding()
+
+				Expect(localBindings).Should(Not(BeEmpty()))
+				Expect(localBindings).Should(HaveLen(len(dests) + 1))
+				Expect(localBindings).Should(Not(ContainElement(map[string]string{"Test": "Data"})))
 			})
 		})
 	})
