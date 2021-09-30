@@ -13,7 +13,7 @@ type Script struct {
 	Author    string
 	Signature string
 	Body      string
-	Security  int // 0: internal state access only, no host access.  1: "preformated" host access, status etc.  2: read only host access. 3: r/w host access 4: command execution
+	Access    int // 0: internal state access only, no host access.  1: "preformated" host access, status etc.  2: read only host access. 3: r/w host access 4: command execution
 }
 
 type Server struct {

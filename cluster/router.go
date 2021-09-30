@@ -228,46 +228,67 @@ func (r *router) Send(code string, e Emitter, msg transport.Message) {
 // Emit handles all messages.  Might change to "Route"?
 // gossip libs need to convert emitter fields from local to peer before passing to Emit
 func (r *router) Emit(e Emitter, msg transport.Message) {
+	// TODO: need to switch on msg type and subtype, to decide where specifically to route it.  Probably move into a function, with the default being to log an error.
 	switch e {
 	case LOCAL_CLIENT:
-		//send to storage processing
-		r.storageOutbound <- msg
-		//Brodcast to cluster
-		r.broadcastCluster(e, msg)
-		//Route to local agents
-		r.routeAgent(e, msg)
-	case PEER_CLIENT:
-		//send to storage processing
-		r.storageOutbound <- msg
-		//Route to local agents
-		r.routeAgent(e, msg)
+		r.handleLocalClientEmit(e, msg)
 	case LOCAL_AGENT:
-		// send to output handling
-		r.processingOutbound <- msg
-		// send to storage processing
-		r.storageOutbound <- msg
-		// Route to cluster
-		r.routeCluster(e, msg)
-		// route to local clients
-		r.routeClient(e, msg)
-	case PEER_AGENT:
-		// route to local clients
-		r.routeClient(e, msg)
+		r.handleLocalAgentEmit(e, msg)
 	case LOCAL_SERVER:
-		// Local server is feedback from storage/processing mechanism, and agent/client join leave
-		// send to storage processing
-		r.storageOutbound <- msg
-		// broadcast to local clients
-		r.broadcastClient(e, msg)
+		r.handleLocalServerEmit(e, msg)
+	case PEER_CLIENT:
+		r.handlePeerClientEmit(e, msg)
+	case PEER_AGENT:
+		r.handlePeerAgentEmit(e, msg)
 	case PEER_SERVER:
-		// peer server messages are cluster composition changes
-		// send to storage processing
-		r.storageOutbound <- msg
-		// broadcast to local clients
-		r.broadcastClient(e, msg)
-		// broadcast to local agents
-		r.broadcastAgent(e, msg)
+		r.handlePeerServerEmit(e, msg)
 	}
+}
+
+func (r *router) handleLocalClientEmit(e Emitter, msg transport.Message) {
+	//send to storage processing
+	r.storageOutbound <- msg
+	//Brodcast to cluster
+	r.broadcastCluster(e, msg)
+	//Route to local agents
+	r.routeAgent(e, msg)
+}
+func (r *router) handleLocalAgentEmit(e Emitter, msg transport.Message) {
+	// send to output handling
+	r.processingOutbound <- msg
+	// send to storage processing
+	r.storageOutbound <- msg
+	// Route to cluster
+	r.routeCluster(e, msg)
+	// route to local clients
+	r.routeClient(e, msg)
+}
+func (r *router) handleLocalServerEmit(e Emitter, msg transport.Message) {
+	// Local server is feedback from storage/processing mechanism, and agent/client join leave
+	// send to storage processing
+	r.storageOutbound <- msg
+	// broadcast to local clients
+	r.broadcastClient(e, msg)
+}
+
+func (r *router) handlePeerClientEmit(e Emitter, msg transport.Message) {
+	//send to storage processing
+	r.storageOutbound <- msg
+	//Route to local agents
+	r.routeAgent(e, msg)
+}
+func (r *router) handlePeerAgentEmit(e Emitter, msg transport.Message) {
+	// route to local clients
+	r.routeClient(e, msg)
+}
+func (r *router) handlePeerServerEmit(e Emitter, msg transport.Message) {
+	// peer server messages are cluster composition changes
+	// send to storage processing
+	r.storageOutbound <- msg
+	// broadcast to local clients
+	r.broadcastClient(e, msg)
+	// broadcast to local agents
+	r.broadcastAgent(e, msg)
 }
 
 /**
@@ -363,7 +384,7 @@ func linearizeTags(bind map[string]string) (bindings []bindEntry) {
 			return bindings[i].key < bindings[j].key
 		}
 		return bindings[i].value < bindings[j].value
-	}) // this should also sort by values, if the keys are equal.
+	})
 
 	return
 }
@@ -376,7 +397,7 @@ func copyTagMap(original map[string]string) map[string]string {
 	return copy
 }
 
-func (sr *SubsetRouter) ListLocalBinding() (output []map[string]string) { // This should be made to only emit binding for things that aren't remote.
+func (sr *SubsetRouter) ListLocalBinding() (output []map[string]string) {
 	type searchNode struct {
 		node  *subsetRouteNode
 		state map[string]string

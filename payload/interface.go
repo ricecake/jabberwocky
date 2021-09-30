@@ -56,10 +56,17 @@ func Execute(ctx context.Context, msg transport.Message, output chan transport.M
 			maybeReconnect(ctx, output)
 		}
 	case "script":
-		go func() {
-			runScript(payloadCtx, script, output)
-			cancel()
-		}()
+		switch msg.SubType {
+		case "deploy":
+			log.Info("deploy script")
+		case "execute":
+			go func() {
+				runScript(payloadCtx, script, output)
+				cancel()
+			}()
+		default:
+			log.Infof("MSG: [%+v]", msg)
+		}
 	}
 }
 

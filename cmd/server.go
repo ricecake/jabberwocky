@@ -28,6 +28,7 @@ import (
 	"jabberwocky/cluster"
 	"jabberwocky/storage"
 	"jabberwocky/transport"
+	"jabberwocky/processing"
 )
 
 // content is our static web server content.
@@ -130,15 +131,14 @@ to quickly create a Cobra application.`,
 
 		mClient.HandleMessage(func(s *melody.Session, msg []byte) {
 			code := s.MustGet("code").(string)
-			encMsg := transport.Message{
-				SourceId: code,
-				Type:     string(msg),
+
+			encMsg, err := transport.DecodeJson(msg)
+			if err != nil {
+				log.Error(err.Error())
 			}
-			// rep, err := encMsg.EncodeJson()
-			// if err != nil {
-			// 	log.Error(err.Error())
-			// }
-			// mAgent.Broadcast(rep)
+
+			encMsg.SourceId = code
+
 			cluster.Router.Emit(cluster.LOCAL_CLIENT, encMsg)
 		})
 
@@ -250,8 +250,8 @@ to quickly create a Cobra application.`,
 
 		err = storage.SaveServer(ctx, storage.Server{
 			Uuid:   nodeId,
-			Host:   viper.GetString("server.advertize.host"),
-			Port:   viper.GetInt("server.advertize.port"),
+			Host:   viper.GetString("server.advertise.host"),
+			Port:   viper.GetInt("server.advertise.port"),
 			Status: "alive",
 			Weight: 0,
 		})
@@ -265,47 +265,8 @@ to quickly create a Cobra application.`,
 			log.Fatal(err.Error())
 		}
 
-		go func() {
-			log.Info("Starting processing loop")
-			for msg := range cluster.Router.GetProcessingOutbound() {
-				log.WithFields(log.Fields{
-					"type":    msg.Type,
-					"subtype": msg.SubType,
-				}).Info("Unknown message type")
-			}
-			log.Info("Leaving processing loop")
-		}()
-
-		go func() {
-			log.Info("Starting storage loop")
-			for msg := range cluster.Router.GetStorageOutbound() {
-				switch msg.Type {
-				case "server":
-					err := storage.SaveServer(ctx, msg.Content.(storage.Server))
-					if err != nil {
-						log.Error(err.Error())
-					}
-				case "agent":
-					switch msg.SubType {
-					case "connect":
-						servers, err := storage.ListLiveServers(ctx)
-						if err != nil {
-							log.Error(err.Error())
-						}
-
-						srvList := transport.NewMessage("server", "list", servers)
-						cluster.Router.Send(msg.Content.(string), cluster.LOCAL_AGENT, srvList)
-					}
-
-				default:
-					log.WithFields(log.Fields{
-						"type":    msg.Type,
-						"subtype": msg.SubType,
-					}).Info("Unknown message type")
-				}
-			}
-			log.Info("Leaving storage loop")
-		}()
+		go processing.HandleStorage(ctx)
+		go processing.HandleOutput(ctx)
 
 		for {
 			select {

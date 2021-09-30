@@ -3,6 +3,10 @@ package transport
 import (
 	"encoding/json"
 	"time"
+
+	"jabberwocky/storage"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type Message struct {
@@ -12,7 +16,7 @@ type Message struct {
 	Seq      int
 	Time     time.Time
 	Type     string
-	SubType  string // might be useful for telling the type output.  One output type, many output subtypes.
+	SubType  string // might be useful for telling the type output.  One output type, many output subtypes. -- this might be better thought of as "action", and type as "content type"
 	Tags     map[string]string
 	Metadata interface{}
 	Content  interface{}
@@ -76,5 +80,31 @@ func (m Message) EncodeJson() ([]byte, error) {
 func DecodeJson(msg []byte) (Message, error) {
 	var decoded Message
 	err := json.Unmarshal(msg, &decoded)
+	if err != nil {
+		return decoded, err
+	}
+
+	// TODO: make this then decide what the type of content is, by having a map function of message type to content type.
+	if contentType, matched := stringToType(decoded.Type, decoded.SubType); matched {
+		mapstructure.Decode(decoded.Content, contentType)
+		decoded.Content = contentType
+	}
+
 	return decoded, err
+}
+
+func stringToType(typeName, subTypeName string) (interface{}, bool) {
+	switch typeName {
+	case "script":
+		return &storage.Script{}, true
+	case "server":
+		if subTypeName == "list" {
+			return &[]storage.Server{}, true
+		}
+		return &storage.Server{}, true
+	case "agent":
+		return &storage.Agent{}, true
+	default:
+		return nil, false
+	}
 }
