@@ -88,6 +88,15 @@ func maybeReconnect(ctx context.Context, output chan transport.Message) {
 		log.Error(err.Error())
 	}
 
+	if len(nodes) == 0 {
+		allNodes, err := storage.ListAllServers(ctx)
+		if err != nil {
+			log.Error(err.Error())
+		}
+
+		nodes = allNodes
+	}
+
 	for _, node := range nodes {
 		hrw.AddNode(node)
 	}

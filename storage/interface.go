@@ -143,6 +143,12 @@ func ListLiveServers(ctx context.Context) ([]Server, error) {
 	return servs, err
 }
 
+func ListUnknownServers(ctx context.Context) ([]Server, error) {
+	var servs []Server
+	err := db(ctx).Where(Server{Status: "unknown"}).Find(&servs).Error
+	return servs, err
+}
+
 func ServerFromString(server string) (Server, error) {
 	var serv Server
 	parsed, err := url.Parse(server)

@@ -82,25 +82,43 @@ to quickly create a Cobra application.`,
 			ctx, cancel := context.WithCancel(outerCtx)
 			defer cancel()
 
-			serversList, _ := storage.ListLiveServers(ctx)
-			log.Infof("SERVERS %+v", serversList)
-
-			//TODO: use rendezvous hashing to pick server
-			//      need to make sure that our "seed node" from the config/dns/wherever is in there, since db only has "seen" nodes from cluster.
-			//      Might be easiest to just get list from db, and if empty, populate with defaults.  That way we might only connect to seed node once.
-
 			agentId, err := storage.GetNodeId(ctx)
 			if err != nil {
 				return err
 			}
 
 			var servers []util.HrwNode
-			seen, err := storage.ListLiveServers(ctx)
+
+			knownLive, err := storage.ListLiveServers(ctx)
 			if err != nil {
 				return err
 			}
 
-			if len(seen) == 0 {
+			knownUnknown, err := storage.ListUnknownServers(ctx)
+			if err != nil {
+				return err
+			}
+
+			knownAny, err := storage.ListAllServers(ctx)
+			if err != nil {
+				return err
+			}
+
+			// TODO this should be modified so that it returns something that can cause it to cycle, rather than just consider all nodes.
+			if len(knownLive) != 0 {
+				for _, serv := range knownLive {
+					servers = append(servers, serv)
+				}
+			} else if len(knownUnknown) != 0 {
+				for _, serv := range knownUnknown {
+					servers = append(servers, serv)
+				}
+			} else if len(knownAny) != 0 {
+				storage.MarkServersUnknown(ctx)
+				for _, serv := range knownAny {
+					servers = append(servers, serv)
+				}
+			} else {
 				log.Info("Using seed nodes")
 			SEED:
 				for _, sUrl := range viper.GetStringSlice("agent.seed_nodes") {
@@ -111,12 +129,9 @@ to quickly create a Cobra application.`,
 					}
 					servers = append(servers, serv)
 				}
-			} else {
-				for _, serv := range seen {
-					servers = append(servers, serv)
-				}
 			}
-			//   Need a fallback so that if there's no live servers, we intermitently try every known server.
+
+			log.Infof("Using servers: %+v", servers)
 
 			hrw := util.NewHrw()
 
