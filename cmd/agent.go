@@ -50,6 +50,21 @@ to quickly create a Cobra application.`,
 				start timers and crons
 		*/
 
+		// TODO
+		// This needs to be setup so that it puts the messages into either a queue, or into a channel to be sent over the websocket.
+		// The goal is that all the log messages will end up being shipped into the cluster.
+
+		// log.SetHandler(log.HandlerFunc(func(e *log.Entry) error {
+		// 	sendIt := time.Now().After(onlyAfter)
+		// 	if sendIt {
+		// 		_, anounceErr := discord.ChannelMessageSend(viper.GetString("channel"), fmt.Sprintf("%s: %s", e.Level, e.Message))
+		// 		if anounceErr != nil {
+		// 			return anounceErr
+		// 		}
+		// 	}
+		// 	return nil
+		// }))
+
 		// This context backoff doesn't do what was wanted.  Might be useless to me.
 		initCtx, outerCancel := context.WithCancel(context.Background())
 		defer outerCancel()
@@ -104,7 +119,6 @@ to quickly create a Cobra application.`,
 				return err
 			}
 
-			// TODO this should be modified so that it returns something that can cause it to cycle, rather than just consider all nodes.
 			if len(knownLive) != 0 {
 				for _, serv := range knownLive {
 					servers = append(servers, serv)

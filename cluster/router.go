@@ -208,6 +208,26 @@ func packageMessage(e Emitter, msg transport.Message) clusterEnvelope {
 	}
 }
 
+/*
+Need a function like this, but for sending to storage.
+this is needed because if we gossip a message that needs it's UUID filled in, or other "defaulted" fields,
+then we will end up deriving multiple different derived fields on each server.
+So when creating a payload, for example, we want to route it to storage, and then let storage announce
+that it should be broadcast.
+Need to make sure that the handling of messages from the local server/to the peer server get gossiped and persisted correctly.
+Probably fine to have the agent/client websocket connections grab anything with the subtype of CRUD verbs and route to storage, else send to emit.
+switch msg.SubType{case ... crud: Storage; default: emit}
+
+Local server should broadcast to client, and broadcast to cluster.
+peer server should storage, and broadcast to client.
+joining/connecting agent/client should move to sending to storage where appropriate.
+
+Need to find a consistent way for ensuring agents are informed about leaving/joining servers, but make things normal otherwise.
+
+Should just put message specific type/subtype handing in the emit function.
+Break the bodies of the different cases out into helper functions, so that the deeply nested switch statements don't become confusing.
+*/
+
 func (r *router) Send(code string, e Emitter, msg transport.Message) {
 	switch e {
 	case LOCAL_CLIENT:
@@ -428,6 +448,11 @@ func (sr *SubsetRouter) ListLocalBinding() (output []map[string]string) {
 	return
 }
 
+// TODO
+// Need a method to replace bindings by tag.  This will be used when merging remote state.
+// Should be able to add all tags from new set, and then loop through and remove any bindings not in that new set.
+// When gossiping state, servers should share what messages they are interested in being notified about.
+
 func (sr *SubsetRouter) AddBind(dest Destination, binding map[string]string) {
 	if len(binding) == 0 {
 		sr.root.subscribers = append(sr.root.subscribers, dest)
@@ -458,6 +483,7 @@ func (sr *SubsetRouter) AddBind(dest Destination, binding map[string]string) {
 	}
 
 	node.subscribers = append(node.subscribers, dest)
+	// TODO this should ensure that there's only once copy of dest in the array.
 }
 
 func (sr *SubsetRouter) Route(tags map[string]string) (destinations []Destination) {
@@ -488,6 +514,12 @@ func (sr *SubsetRouter) Route(tags map[string]string) (destinations []Destinatio
 		}
 	}
 
+	//TODO this should deduplicate subscribers.
+
+	return
+}
+
+func deduplicate(destinations []Destination) (dedupe []Destination) {
 	return
 }
 

@@ -54,6 +54,16 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	// add an ENV/flag for node specific identifier to be passed in.
+	// also want to allow for a specific port to be used.
+
+	// Should, for kube stuff, use node port for each server, and then use something like a clusterip for initial introductions,
+	// and find something more lb-ish for doing a public lb based dashboard view.
+	// ---- NO.  It needs to be the headless thing, since I dont want the random routing.  Just need to figure out how to expose a publice port with headless.
+	// Headless with a named port will get dns records.
+	// Should accept both a "cluster name" parameter, as well as a "node name" parameter.  Node name should convert any dns label chars into dashes.
+	// Maybe the best answer is to just have a flag on the agent that disables auto-balancing?
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -1,0 +1,18 @@
+Make the storage layer start saving data:
+	need to move the message routing based on type/subtype into emission
+	need to get storage setup
+	need to re-emit saved data appropriately.
+		maybe it needs to change type? probably not.
+Need to make sure it pulls monaco from local, not from cdn.
+Need to work out basic auth (openid)
+need to be able to distribute jobs
+need to be able to execute jobs
+need to rework the command system in execution layer
+nned to send info about whats connected to client
+need to fill out the rest of the pages
+need to make ssh client * bonus
+nood to start incrementally adding typescript support
+need to make an interface for getting js function signatures into the autocomplete
+	this should live under a generic "server configuration" http endpoint
+
+need to make sure we can take a node identifier *base* from the command line or env.

@@ -26,9 +26,9 @@ import (
 	"gopkg.in/olahol/melody.v1"
 
 	"jabberwocky/cluster"
+	"jabberwocky/processing"
 	"jabberwocky/storage"
 	"jabberwocky/transport"
-	"jabberwocky/processing"
 )
 
 // content is our static web server content.

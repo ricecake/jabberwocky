@@ -116,3 +116,23 @@ Should make the gossip parts gossip signed messages, to protect against unintend
 Not huge priority, but should be easy to do.
 
 Next priority: Work on payload/command installation and job creation. Figuring out auth model can wait a little bit, once core functionality is finished. 
+
+
+Should use openid as the auth mechanism for clients.  Can target google or *, since there are many providers.
+
+If the ability is added to specify the backing database, it would be necessary to also only save changes in the storage layer once per cluster.
+A flag of some sort that says "omit storage if peer message" would do it.
+
+Need to revisit what commands look like for an agent.
+
+Should probably make them a bit more like the commands that cobra uses, since we don't need the ability to have many instances of the "log" command.
+This means that a command could just be a single struct type, and for "default" values, there's a method on the struct that just fills them in when 
+building the interprester.
+
+Should make sure there's a way to route from a client to an agent without using broadcast.
+Should make sure there's a way to do the reverse, without exposing the client to the agent.
+Likely a way that a client can subscribe to a jobid directly, so others can tap in.
+For the other way, make it so that if a client is sending a message with a tag of an agent id, it should skip a lot of the routing
+and just fallback to direct messaging.  This means that there needs to be a way for one server to indicate to another that a message has special meaning.
+Is that just "oh, it has a route of only an ID.  That means I just send it to that agent".  That might be the easiest.
+Objective: make it so that the web ssh functionality works as expected.

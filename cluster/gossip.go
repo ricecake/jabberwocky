@@ -93,7 +93,7 @@ type NodeState struct {
 	State   storage.Server
 	Agents  []storage.Agent  `json:"omitempty"`
 	Scripts []storage.Script `json:"omitEmpty"`
-	// This should also include a map of subscriptions, both for this node, and for all known node subscriptions.
+	// TODO This should also include a map of subscriptions, both for this node, and for all known node subscriptions.
 	// it should also include any persistent jobs, and known agents and their details.
 }
 
