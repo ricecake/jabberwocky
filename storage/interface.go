@@ -71,7 +71,7 @@ func SetAgentStatus(ctx context.Context, uuid, status string) error {
 func SaveAgent(ctx context.Context, agent Agent) error {
 	return db(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "uuid"}},
-		DoUpdates: clause.AssignmentColumns([]string{"public_key", "public_key_id", "delegated_server", "last_contat"}),
+		DoUpdates: clause.AssignmentColumns([]string{"public_key", "public_key_id", "delegated_server", "status", "last_contact"}),
 	}).Create(&agent).Error
 }
 

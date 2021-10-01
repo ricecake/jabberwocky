@@ -20,15 +20,32 @@ func HandleStorage(ctx context.Context) {
 				log.Error(err.Error())
 			}
 		case "agent":
+			agent, ok := msg.Content.(storage.Agent)
+			if !ok {
+				log.Errorf("Bad agent in connection message %+v", msg)
+				break
+			}
+
+			err := storage.SaveAgent(ctx, agent)
+			if err != nil {
+				log.Error(err.Error())
+			}
+
 			switch msg.SubType {
 			case "connect":
 				servers, err := storage.ListLiveServers(ctx)
 				if err != nil {
 					log.Error(err.Error())
+					break
 				}
 
 				srvList := transport.NewMessage("server", "list", servers)
-				cluster.Router.Send(msg.Content.(string), cluster.LOCAL_AGENT, srvList)
+				cluster.Router.Send(agent.Uuid, cluster.LOCAL_AGENT, srvList)
+			}
+
+			if msg.SubType != "sync" {
+				msg.SubType = "sync"
+				cluster.Router.Emit(cluster.LOCAL_SERVER, msg)
 			}
 		case "script":
 			switch msg.SubType {

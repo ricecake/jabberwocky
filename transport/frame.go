@@ -84,27 +84,33 @@ func DecodeJson(msg []byte) (Message, error) {
 		return decoded, err
 	}
 
-	// TODO: make this then decide what the type of content is, by having a map function of message type to content type.
-	if contentType, matched := stringToType(decoded.Type, decoded.SubType); matched {
-		mapstructure.Decode(decoded.Content, contentType)
-		decoded.Content = contentType
-	}
+	decoded = NormalizeFrameContent(decoded)
 
 	return decoded, err
 }
 
-func stringToType(typeName, subTypeName string) (interface{}, bool) {
-	switch typeName {
+func NormalizeFrameContent(frame Message) Message {
+	switch frame.Type {
 	case "script":
-		return &storage.Script{}, true
-	case "server":
-		if subTypeName == "list" {
-			return &[]storage.Server{}, true
-		}
-		return &storage.Server{}, true
+		var content storage.Script
+		mapstructure.Decode(frame.Content, &content)
+		frame.Content = content
 	case "agent":
-		return &storage.Agent{}, true
-	default:
-		return nil, false
+		var content storage.Agent
+		mapstructure.Decode(frame.Content, &content)
+		frame.Content = content
+	case "server":
+		switch frame.SubType {
+		case "list":
+			var content []storage.Server
+			mapstructure.Decode(frame.Content, &content)
+			frame.Content = content
+		default:
+			var content storage.Server
+			mapstructure.Decode(frame.Content, &content)
+			frame.Content = content
+		}
 	}
+
+	return frame
 }

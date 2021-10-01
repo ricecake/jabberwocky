@@ -62,6 +62,11 @@ to quickly create a Cobra application.`,
 			log.Fatal(initErr.Error())
 		}
 
+		nodeId, err := storage.GetNodeId(ctx)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
 		unkErr := storage.MarkServersUnknown(ctx)
 		if unkErr != nil {
 			log.Fatal(unkErr.Error())
@@ -151,7 +156,7 @@ to quickly create a Cobra application.`,
 					select {
 					case msg, more := <-channel:
 						if !more {
-							log.Infof("Closing %s", code)
+							log.Infof("Closing routing %s", code)
 							if !s.IsClosed() {
 								s.Close()
 							}
@@ -168,13 +173,24 @@ to quickly create a Cobra application.`,
 				}
 			}()
 
-			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("agent", "connect", code))
+			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("agent", "connect", storage.Agent{
+				Uuid:            code,
+				DelegatedServer: nodeId,
+				Status:          "connected",
+				LastContact:     time.Now(),
+			}))
 		})
 
 		mAgent.HandleDisconnect(func(s *melody.Session) {
 			code := s.MustGet("code").(string)
+			log.Infof("Closing websocket: %s", code)
 			cluster.Router.UnregisterAgent(code)
-			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("agent", "disconnect", code))
+			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("agent", "disconnect", storage.Agent{
+				Uuid:            code,
+				DelegatedServer: nodeId,
+				Status:          "disconnected",
+				LastContact:     time.Now(),
+			}))
 
 		})
 
@@ -235,11 +251,6 @@ to quickly create a Cobra application.`,
 			log.Fatal(err.Error())
 		}
 		log.Infof("Listening on %s", ln.Addr().String())
-
-		nodeId, err := storage.GetNodeId(ctx)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
 
 		go func() {
 			http.Serve(ln, r)

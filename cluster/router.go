@@ -268,8 +268,6 @@ func (r *router) Emit(e Emitter, msg transport.Message) {
 func (r *router) handleLocalClientEmit(e Emitter, msg transport.Message) {
 	//send to storage processing
 	r.storageOutbound <- msg
-	//Brodcast to cluster
-	r.broadcastCluster(e, msg)
 	//Route to local agents
 	r.routeAgent(e, msg)
 }
@@ -285,10 +283,16 @@ func (r *router) handleLocalAgentEmit(e Emitter, msg transport.Message) {
 }
 func (r *router) handleLocalServerEmit(e Emitter, msg transport.Message) {
 	// Local server is feedback from storage/processing mechanism, and agent/client join leave
-	// send to storage processing
-	r.storageOutbound <- msg
-	// broadcast to local clients
-	r.broadcastClient(e, msg)
+
+	if msg.SubType == "sync" {
+		// broadcast to local clients
+		r.broadcastClient(e, msg)
+		//Brodcast to cluster
+		r.broadcastCluster(e, msg)
+	} else {
+		// send to storage processing
+		r.storageOutbound <- msg
+	}
 }
 
 func (r *router) handlePeerClientEmit(e Emitter, msg transport.Message) {
@@ -307,8 +311,11 @@ func (r *router) handlePeerServerEmit(e Emitter, msg transport.Message) {
 	r.storageOutbound <- msg
 	// broadcast to local clients
 	r.broadcastClient(e, msg)
-	// broadcast to local agents
-	r.broadcastAgent(e, msg)
+
+	if msg.Type == "server" {
+		// broadcast to local agents
+		r.broadcastAgent(e, msg)
+	}
 }
 
 /**

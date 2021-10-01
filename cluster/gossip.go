@@ -59,7 +59,6 @@ func startGossip(ctx context.Context) error {
 	go func() {
 		log.Info("Starting broadcast loop")
 		for msg := range Router.GetClusterOutbound() {
-			log.Infof("broadcast %+v", msg)
 			cast, err := castMsg(msg, client)
 			if err != nil {
 				log.Error(err.Error())
@@ -145,7 +144,7 @@ func (d *delegate) NotifyMsg(b []byte) {
 		msgMap[frame.Id] = true
 		d.lock.Unlock()
 
-		Router.Emit(frame.Emitter.ConvertToPeer(), frame.Message)
+		Router.Emit(frame.Emitter.ConvertToPeer(), transport.NormalizeFrameContent(frame.Message))
 	}
 }
 

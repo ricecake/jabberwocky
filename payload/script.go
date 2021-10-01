@@ -36,11 +36,11 @@ There should be an Init function on the file that will "register" each of the co
 and from there let the actual engine do it's job of managing commands and executing them.
 */
 type command struct {
-	name    string   // name of function
-	path    []string // where it lives.  can be empty
+	name string   // name of function
+	path []string // where it lives.  can be empty
 	// autocomplete string --- this might be helpful for defining what we want it to autocomplete as
-	body    exFunc   // the actual function body
-	cleanup func()   // takes no args, returns no values.  Need to figure out how to pass in the command best. maybe cleanup and body just need to have the command passed in?
+	body    exFunc // the actual function body
+	cleanup func() // takes no args, returns no values.  Need to figure out how to pass in the command best. maybe cleanup and body just need to have the command passed in?
 	// cleanup func(command)
 	// body func(command) exFunc
 	ctx     context.Context
