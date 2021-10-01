@@ -54,6 +54,7 @@ func HandleStorage(ctx context.Context) {
 			}
 		default:
 			log.WithFields(log.Fields{
+				"system":  "storage",
 				"type":    msg.Type,
 				"subtype": msg.SubType,
 			}).Info("Unknown message type")
@@ -66,6 +67,7 @@ func HandleOutput(ctx context.Context) {
 	log.Info("Starting processing loop")
 	for msg := range cluster.Router.GetProcessingOutbound() {
 		log.WithFields(log.Fields{
+			"system":  "output",
 			"type":    msg.Type,
 			"subtype": msg.SubType,
 		}).Info("Unknown message type")

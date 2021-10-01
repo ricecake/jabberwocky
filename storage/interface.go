@@ -75,6 +75,10 @@ func SaveAgent(ctx context.Context, agent Agent) error {
 	}).Create(&agent).Error
 }
 
+func MarkAgentsUnknown(ctx context.Context) error {
+	return db(ctx).Model(&Agent{}).Where("status != ?", "unknown").Update("status", "unknown").Error
+}
+
 func GetNodeId(ctx context.Context) (string, error) {
 	newUUID := uuid.NewRandom().String()
 	var prop Property

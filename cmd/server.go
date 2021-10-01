@@ -67,9 +67,14 @@ to quickly create a Cobra application.`,
 			log.Fatal(err.Error())
 		}
 
-		unkErr := storage.MarkServersUnknown(ctx)
-		if unkErr != nil {
-			log.Fatal(unkErr.Error())
+		markServErr := storage.MarkServersUnknown(ctx)
+		if markServErr != nil {
+			log.Fatal(markServErr.Error())
+		}
+
+		markAgentErr := storage.MarkAgentsUnknown(ctx)
+		if markAgentErr != nil {
+			log.Fatal(markAgentErr.Error())
 		}
 
 		r := gin.Default()
@@ -125,13 +130,13 @@ to quickly create a Cobra application.`,
 				}
 			}()
 
-			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("client", "connect", code))
+			cluster.Router.Emit(cluster.LOCAL_CLIENT, transport.NewMessage("client", "connect", code))
 		})
 
 		mClient.HandleDisconnect(func(s *melody.Session) {
 			code := s.MustGet("code").(string)
 			cluster.Router.UnregisterClient(code)
-			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("client", "disconnect", code))
+			cluster.Router.Emit(cluster.LOCAL_CLIENT, transport.NewMessage("client", "disconnect", code))
 		})
 
 		mClient.HandleMessage(func(s *melody.Session, msg []byte) {
@@ -173,7 +178,7 @@ to quickly create a Cobra application.`,
 				}
 			}()
 
-			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("agent", "connect", storage.Agent{
+			cluster.Router.Emit(cluster.LOCAL_AGENT, transport.NewMessage("agent", "connect", storage.Agent{
 				Uuid:            code,
 				DelegatedServer: nodeId,
 				Status:          "connected",
@@ -185,7 +190,7 @@ to quickly create a Cobra application.`,
 			code := s.MustGet("code").(string)
 			log.Infof("Closing websocket: %s", code)
 			cluster.Router.UnregisterAgent(code)
-			cluster.Router.Emit(cluster.LOCAL_SERVER, transport.NewMessage("agent", "disconnect", storage.Agent{
+			cluster.Router.Emit(cluster.LOCAL_AGENT, transport.NewMessage("agent", "disconnect", storage.Agent{
 				Uuid:            code,
 				DelegatedServer: nodeId,
 				Status:          "disconnected",
