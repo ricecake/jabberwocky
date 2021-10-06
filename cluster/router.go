@@ -1,11 +1,9 @@
 package cluster
 
 import (
-	"sort"
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ricecake/karma_chameleon/util"
 
 	"jabberwocky/transport"
 )
@@ -148,65 +146,17 @@ func (r *router) UnregisterPeer(code string) {
 	}
 }
 
-type Emitter int
+func (r *router) AddAgentBinding(code string, binding map[string]string) {} //Superset binding -- all msg tags in binding
 
-const (
-	LOCAL_CLIENT Emitter = iota
-	LOCAL_AGENT
-	LOCAL_SERVER
-	PEER_CLIENT
-	PEER_AGENT
-	PEER_SERVER
-)
+func (r *router) AddClientBinding(code string, binding map[string]string) {
+	r.subRouter.AddBind(Destination{
+		Role: LOCAL_CLIENT,
+		Code: code,
+	}, binding)
 
-func (e Emitter) String() string {
-	return [...]string{
-		"Local Client",
-		"Local Agent",
-		"Local Server",
-		"Peer Client",
-		"Peer Agent",
-		"Peer Server",
-	}[e]
-}
+} // subset binding -- all bindings in msg tags
 
-func (e Emitter) ConvertToPeer() Emitter {
-	return [...]Emitter{
-		PEER_CLIENT,
-		PEER_AGENT,
-		PEER_SERVER,
-		PEER_CLIENT,
-		PEER_AGENT,
-		PEER_SERVER,
-	}[e]
-}
-
-func (e Emitter) IsLocal() bool {
-	return [...]bool{
-		true,
-		true,
-		true,
-		false,
-		false,
-		false,
-	}[e]
-}
-
-type clusterEnvelope struct {
-	Id      string
-	Server  string
-	Emitter Emitter
-	Message transport.Message
-}
-
-func packageMessage(e Emitter, msg transport.Message) clusterEnvelope {
-	return clusterEnvelope{
-		Id:      util.CompactUUID(),
-		Server:  handler.nodeId,
-		Emitter: e,
-		Message: msg,
-	}
-}
+func (r *router) AddServerBinding(code string, binding map[string]string) {} // subset binding -- all bindings in msg tags
 
 /*
 Need a function like this, but for sending to storage.
@@ -272,6 +222,9 @@ func (r *router) handleLocalClientEmit(e Emitter, msg transport.Message) {
 	r.routeAgent(e, msg)
 }
 func (r *router) handleLocalAgentEmit(e Emitter, msg transport.Message) {
+	// TODO: make agent messages all, even connection, be local agent.
+	// Then can have these always send to storage and processing, and then it should make the broadcast and routing part a bit easier to reason about.
+
 	// send to output handling
 	r.processingOutbound <- msg
 	// send to storage processing
@@ -283,6 +236,8 @@ func (r *router) handleLocalAgentEmit(e Emitter, msg transport.Message) {
 }
 func (r *router) handleLocalServerEmit(e Emitter, msg transport.Message) {
 	// Local server is feedback from storage/processing mechanism, and agent/client join leave
+	// TODO: this should be made to *only* handle messages produced internally.  So sync messages from storage, mostly.
+	// This would move the different join/leave messages into the respective handlers
 
 	if msg.SubType == "sync" {
 		// broadcast to local clients
@@ -356,178 +311,6 @@ func (r *router) routeClient(e Emitter, msg transport.Message) {
 }
 func (r *router) routeAgent(e Emitter, msg transport.Message) {
 	r.broadcastAgent(e, msg)
-}
-
-func (r *router) AddAgentBinding(code string, binding map[string]string) {} //Superset binding -- all msg tags in binding
-
-func (r *router) AddClientBinding(code string, binding map[string]string) {
-	r.subRouter.AddBind(Destination{
-		Role: LOCAL_CLIENT,
-		Code: code,
-	}, binding)
-
-} // subset binding -- all bindings in msg tags
-
-func (r *router) AddServerBinding(code string, binding map[string]string) {} // subset binding -- all bindings in msg tags
-
-type bindEntry struct {
-	key   string
-	value string
-}
-type Destination struct {
-	Role Emitter
-	Code string
-}
-
-type SubsetRouter struct {
-	root *subsetRouteNode
-}
-
-func NewSubsetRouter() *SubsetRouter {
-	return &SubsetRouter{
-		root: &subsetRouteNode{
-			subnode: make(map[string]map[string]*subsetRouteNode),
-		},
-	}
-}
-
-type subsetRouteNode struct {
-	bind        bindEntry
-	subscribers []Destination
-	subnode     map[string]map[string]*subsetRouteNode
-}
-
-func (sr *SubsetRouter) Dump() {
-	spew.Dump(sr)
-}
-
-func linearizeTags(bind map[string]string) (bindings []bindEntry) {
-	for k, v := range bind {
-		bindings = append(bindings, bindEntry{key: k, value: v})
-	}
-
-	sort.Slice(bindings, func(i, j int) bool {
-		if bindings[i].key != bindings[j].key {
-			return bindings[i].key < bindings[j].key
-		}
-		return bindings[i].value < bindings[j].value
-	})
-
-	return
-}
-
-func copyTagMap(original map[string]string) map[string]string {
-	copy := make(map[string]string)
-	for key, value := range original {
-		copy[key] = value
-	}
-	return copy
-}
-
-func (sr *SubsetRouter) ListLocalBinding() (output []map[string]string) {
-	type searchNode struct {
-		node  *subsetRouteNode
-		state map[string]string
-	}
-
-	searchSpace := []searchNode{searchNode{sr.root, make(map[string]string)}}
-
-	for len(searchSpace) != 0 {
-		item := searchSpace[0]
-		searchSpace = searchSpace[1:]
-
-		for _, subscriber := range item.node.subscribers {
-			if subscriber.Role.IsLocal() {
-				output = append(output, copyTagMap(item.state))
-				break
-			}
-		}
-
-		for key, valueMap := range item.node.subnode {
-			for value, subnode := range valueMap {
-				state := copyTagMap(item.state)
-				state[key] = value
-				searchSpace = append(searchSpace, searchNode{subnode, state})
-			}
-		}
-	}
-
-	return
-}
-
-// TODO
-// Need a method to replace bindings by tag.  This will be used when merging remote state.
-// Should be able to add all tags from new set, and then loop through and remove any bindings not in that new set.
-// When gossiping state, servers should share what messages they are interested in being notified about.
-
-func (sr *SubsetRouter) AddBind(dest Destination, binding map[string]string) {
-	if len(binding) == 0 {
-		sr.root.subscribers = append(sr.root.subscribers, dest)
-		return
-	}
-
-	bindings := linearizeTags(binding)
-
-	node := sr.root
-	for _, v := range bindings {
-		var found bool
-		var valMap map[string]*subsetRouteNode
-		if valMap, found = node.subnode[v.key]; !found {
-			valMap = make(map[string]*subsetRouteNode)
-			node.subnode[v.key] = valMap
-		}
-
-		var subnode *subsetRouteNode
-		if subnode, found = valMap[v.value]; !found {
-			subnode = &subsetRouteNode{
-				subnode: make(map[string]map[string]*subsetRouteNode),
-				bind:    bindEntry{key: v.key, value: v.value},
-			}
-			valMap[v.value] = subnode
-		}
-
-		node = subnode
-	}
-
-	node.subscribers = append(node.subscribers, dest)
-	// TODO this should ensure that there's only once copy of dest in the array.
-}
-
-func (sr *SubsetRouter) Route(tags map[string]string) (destinations []Destination) {
-	if len(tags) == 0 {
-		destinations = append(destinations, sr.root.subscribers...)
-		return
-	}
-
-	type searchPath struct {
-		node  *subsetRouteNode
-		check []bindEntry
-	}
-
-	bindings := linearizeTags(tags)
-	searchSpace := []searchPath{searchPath{sr.root, bindings}}
-
-	for len(searchSpace) != 0 {
-		item := searchSpace[0]
-		searchSpace = searchSpace[1:]
-
-		destinations = append(destinations, item.node.subscribers...)
-		for index, bind := range item.check {
-			if valMap, found := item.node.subnode[bind.key]; found {
-				if subnode, found := valMap[bind.value]; found {
-					searchSpace = append(searchSpace, searchPath{subnode, item.check[index+1:]})
-				}
-			}
-		}
-	}
-
-	//TODO this should deduplicate subscribers.
-
-	return
-}
-
-func deduplicate(destinations []Destination) (dedupe []Destination) {
-	return
 }
 
 /*
