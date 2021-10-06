@@ -159,6 +159,20 @@ const Home = lazy(() => import('Page/home'));
 
 const Payload = lazy(() => import('Page/payload'));
 const PayloadCreate = lazy(() => import('Page/payload/create'));
+const PayloadEdit = lazy(() => import('Page/payload/create'));
+
+const Server = lazy(() => import('Page/server'));
+
+const Utility = lazy(() => import('Page/utility'));
+const UtilityTail = lazy(() => import('Page/utility/tail'));
+
+const Job = lazy(() => import('Page/job'));
+const JobCreate = lazy(() => import('Page/job/create'));
+const JobEdit = lazy(() => import('Page/job/edit'));
+
+const Agent = lazy(() => import('Page/agent'));
+const AgentManage = lazy(() => import('Page/agent/manage'));
+const AgentTerminal = lazy(() => import('Page/agent/terminal'));
 
 export const App = (props) => {
 	const { classes } = props;
@@ -192,8 +206,42 @@ export const App = (props) => {
 					<Header onDrawerToggle={handleDrawerToggle} />
 					<Suspense fallback={<div>Loading...</div>}>
 						<Switch>
+							<Route path="/agent/terminal">
+								<AgentTerminal />
+							</Route>
+							<Route path="/agent/manage">
+								<AgentManage />
+							</Route>
+							<Route path="/agent">
+								<Agent />
+							</Route>
+
+							<Route path="/utility/tail">
+								<UtilityTail />
+							</Route>
+							<Route path="/utility">
+								<Utility />
+							</Route>
+
+							<Route path="/server">
+								<Server />
+							</Route>
+
+							<Route path="/job/create">
+								<JobCreate />
+							</Route>
+							<Route path="/job/edit">
+								<JobEdit />
+							</Route>
+							<Route path="/job">
+								<Job />
+							</Route>
+
 							<Route path="/payload/create">
 								<PayloadCreate />
+							</Route>
+							<Route path="/payload/edit">
+								<PayloadEdit />
 							</Route>
 							<Route path="/payload/">
 								<Payload />

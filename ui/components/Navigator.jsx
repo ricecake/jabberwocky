@@ -21,12 +21,30 @@ import MenuIcon from '@material-ui/icons/Menu';
 import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 
+import TrackChangesIcon from '@material-ui/icons/TrackChanges';
+
 import { BrowserRouter as Router, NavLink } from 'react-router-dom';
 
 const categories = [
 	{
+		id: 'Agent',
+	},
+	{
+		id: 'Server',
+	},
+	{
 		id: 'Payload',
 		children: [{ id: 'Create', icon: <CreateIcon /> }],
+	},
+	{
+		id: 'Job',
+		children: [{ id: 'Create', icon: <CreateIcon /> }],
+	},
+	{
+		id: 'Utility',
+		children: [
+			{ id: 'Log tail', path: 'tail', icon: <TrackChangesIcon /> },
+		],
 	},
 ];
 
@@ -108,10 +126,10 @@ function Navigator(props) {
 						</ListItemText>
 					</ListItem>
 				</NavLink>
-				{categories.map(({ id, children }) => (
+				{categories.map(({ id, path, children = [] }) => (
 					<React.Fragment key={id}>
 						<NavLink
-							to={`/${id}/`.toLowerCase()}
+							to={`/${path || id}/`.toLowerCase()}
 							activeClassName={classes.itemActiveItem}
 							className={classes.item}
 						>
@@ -119,27 +137,38 @@ function Navigator(props) {
 								<ListItemText>{id}</ListItemText>
 							</ListItem>
 						</NavLink>
-						{children.map(({ id: childId, icon, active }) => (
-							<NavLink
-								key={childId}
-								to={`/${id}/${childId}/`.toLowerCase()}
-								activeClassName={classes.itemActiveItem}
-								className={classes.item}
-							>
-								<ListItem key={childId} button>
-									<ListItemIcon className={classes.itemIcon}>
-										{icon}
-									</ListItemIcon>
-									<ListItemText
-										classes={{
-											primary: classes.itemPrimary,
-										}}
-									>
-										{childId}
-									</ListItemText>
-								</ListItem>
-							</NavLink>
-						))}
+						{children.map(
+							({
+								id: childId,
+								path: childPath,
+								icon,
+								active,
+							}) => (
+								<NavLink
+									key={childId}
+									to={`/${id}/${
+										childPath || childId
+									}/`.toLowerCase()}
+									activeClassName={classes.itemActiveItem}
+									className={classes.item}
+								>
+									<ListItem key={childId} button>
+										<ListItemIcon
+											className={classes.itemIcon}
+										>
+											{icon}
+										</ListItemIcon>
+										<ListItemText
+											classes={{
+												primary: classes.itemPrimary,
+											}}
+										>
+											{childId}
+										</ListItemText>
+									</ListItem>
+								</NavLink>
+							)
+						)}
 
 						<Divider className={classes.divider} />
 					</React.Fragment>
