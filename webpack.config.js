@@ -1,21 +1,25 @@
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin')
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
-const glob = require('glob')
-const path = require("path");
-const webpack = require("webpack");
+const glob = require('glob');
+const path = require('path');
+const webpack = require('webpack');
 
-let pages = glob.sync(path.resolve(__dirname, 'ui/pages/**/*.jsx')).reduce((acc, path) => {
-	const entry = path.replace(new RegExp('^.+/ui/pages/'), '').replace(".jsx", '');
-	if(entry.match(/index$/)) {
-		acc.push(entry + '.html')
-	} else {
-		acc.push(entry + '/index.html')
-	}
+let pages = glob
+	.sync(path.resolve(__dirname, 'ui/pages/**/*.jsx'))
+	.reduce((acc, path) => {
+		const entry = path
+			.replace(new RegExp('^.+/ui/pages/'), '')
+			.replace('.jsx', '');
+		if (entry.match(/index$/)) {
+			acc.push(entry + '.html');
+		} else {
+			acc.push(entry + '/index.html');
+		}
 
-	return acc
-}, []);
+		return acc;
+	}, []);
 
 let mode = 'development';
 let outPath = '/content/';
@@ -45,20 +49,23 @@ module.exports = {
 			languages: ['javascript'],
 			globalAPI: true,
 		}),
-		...pages.map(page => new HtmlWebpackPlugin({
-			title: 'Jabberwocky',
-			filename: page,
-		})),
+		...pages.map(
+			(page) =>
+				new HtmlWebpackPlugin({
+					title: 'Jabberwocky',
+					filename: page,
+				})
+		),
 	],
 	context: path.resolve(__dirname),
 	resolve: {
-		extensions: ["*", ".js", ".jsx"],
+		extensions: ['*', '.js', '.jsx'],
 		modules: [path.resolve(__dirname, 'node_modules')],
 		alias: {
 			Page: path.resolve(__dirname, 'ui/pages/'),
 			Component: path.resolve(__dirname, 'ui/components/'),
 			Include: path.resolve(__dirname, 'ui/includes/'),
-		}
+		},
 	},
 	optimization: {
 		minimize: true,
@@ -80,26 +87,26 @@ module.exports = {
 			{
 				test: /\.(js|jsx)$/,
 				exclude: /(node_modules|bower_components)/,
-				loader: "babel-loader",
+				loader: 'babel-loader',
 				options: {
-					presets: ["@babel/env"],
-					"plugins": ["minify-dead-code-elimination"],
-				}
+					presets: ['@babel/env'],
+					plugins: ['minify-dead-code-elimination'],
+				},
 			},
 			{
 				test: /\.css$/,
-				use: ["style-loader", "css-loader"]
+				use: ['style-loader', 'css-loader'],
 			},
 			{
 				test: /\.ttf$/,
-				use: ['file-loader']
-			}
-		]
+				use: ['file-loader'],
+			},
+		],
 	},
 	devServer: {
 		contentBase: path.join(__dirname, 'dist'),
 		compress: true,
-		disableHostCheck: true,   // That solved it
-		port: 9004
+		disableHostCheck: true, // That solved it
+		port: 9004,
 	},
 };
