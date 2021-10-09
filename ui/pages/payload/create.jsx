@@ -2,7 +2,11 @@ import React from 'react';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 
+import * as monaco from 'monaco-editor';
 import Editor from '@monaco-editor/react';
+
+//window.monaco = monaco;
+
 import Toolbar from '@material-ui/core/Toolbar';
 import Paper from '@material-ui/core/Paper';
 import TextField from '@material-ui/core/TextField';

@@ -1,5 +1,7 @@
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin')
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
+
 const glob = require('glob')
 const path = require("path");
 const webpack = require("webpack");
@@ -20,7 +22,7 @@ let outPath = '/content/';
 if (process.env.production) {
 	mode = 'production';
 }
-
+// TODO: look into using a json data loader to load configs from the server.  Will need to reference it as external somehow.  Good times.
 module.exports = {
 	mode: mode,
 	entry: {
@@ -28,7 +30,7 @@ module.exports = {
 	},
 	output: {
 		filename: '[name].js',
-		chunkFilename: '[chunkhash].bundle.js',
+		chunkFilename: 'js/[chunkhash].bundle.js',
 		path: path.resolve(__dirname) + outPath,
 		publicPath: '/',
 	},
@@ -38,6 +40,10 @@ module.exports = {
 		}),
 		new webpack.EnvironmentPlugin({
 			production: false,
+		}),
+		new MonacoWebpackPlugin({
+			languages: ['javascript'],
+			globalAPI: true,
 		}),
 		...pages.map(page => new HtmlWebpackPlugin({
 			title: 'Jabberwocky',
@@ -83,6 +89,10 @@ module.exports = {
 			{
 				test: /\.css$/,
 				use: ["style-loader", "css-loader"]
+			},
+			{
+				test: /\.ttf$/,
+				use: ['file-loader']
 			}
 		]
 	},
