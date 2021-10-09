@@ -283,6 +283,7 @@ to quickly create a Cobra application.`,
 
 		go processing.HandleStorage(ctx)
 		go processing.HandleOutput(ctx)
+		go processing.HandleEvent(ctx)
 
 		for {
 			select {

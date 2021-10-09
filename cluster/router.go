@@ -54,6 +54,7 @@ func NewRouter() *router {
 		clusterOutbound:    make(chan clusterEnvelope, 1),
 		processingOutbound: make(chan transport.Message, 1),
 		storageOutbound:    make(chan transport.Message, 1),
+		eventOutbound:      make(chan transport.Message, 1),
 
 		peerOutbound:   make(map[string]chan clusterEnvelope),
 		clientOutbound: make(map[string]chan transport.Message),
@@ -75,6 +76,10 @@ func (r *router) GetStorageOutbound() chan transport.Message {
 
 func (r *router) GetProcessingOutbound() chan transport.Message {
 	return r.processingOutbound
+}
+
+func (r *router) GetEventOutbound() chan transport.Message {
+	return r.eventOutbound
 }
 
 func (r *router) RegisterAgent(code string) chan transport.Message {
@@ -216,6 +221,7 @@ func (r *router) Emit(e Emitter, msg transport.Message) {
 }
 
 func (r *router) handleLocalClientEmit(e Emitter, msg transport.Message) {
+	r.eventOutbound <- msg
 	//send to storage processing
 	r.storageOutbound <- msg
 	//Route to local agents
@@ -225,6 +231,7 @@ func (r *router) handleLocalAgentEmit(e Emitter, msg transport.Message) {
 	// TODO: make agent messages all, even connection, be local agent.
 	// Then can have these always send to storage and processing, and then it should make the broadcast and routing part a bit easier to reason about.
 
+	r.eventOutbound <- msg
 	// send to output handling
 	r.processingOutbound <- msg
 	// send to storage processing
@@ -262,6 +269,7 @@ func (r *router) handlePeerAgentEmit(e Emitter, msg transport.Message) {
 }
 func (r *router) handlePeerServerEmit(e Emitter, msg transport.Message) {
 	// peer server messages are cluster composition changes
+	r.eventOutbound <- msg
 	// send to storage processing
 	r.storageOutbound <- msg
 	// broadcast to local clients

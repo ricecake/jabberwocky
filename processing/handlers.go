@@ -10,6 +10,35 @@ import (
 	"jabberwocky/transport"
 )
 
+func HandleEvent(ctx context.Context) {
+	log.Info("Starting event loop") // Should this be "request"?  It's more of a request loop... kinda.  Reactive something or other
+	for msg := range cluster.Router.GetEventOutbound() {
+		// TODO: make this some form of bounded work queue, so that it won't block, but also wont overload the system
+		// TODO: should we make this loop responsible for filling in defaults for new objects, or leave that in the storage loop?  kinda like leaving it in storage.
+		switch msg.Type {
+		case "agent":
+			switch msg.SubType {
+			case "connect":
+				agent, ok := msg.Content.(storage.Agent)
+				if !ok {
+					log.Errorf("Bad agent in connection message %+v", msg)
+					break
+				}
+
+				servers, err := storage.ListLiveServers(ctx)
+				if err != nil {
+					log.Error(err.Error())
+					break
+				}
+
+				srvList := transport.NewMessage("server", "list", servers)
+				cluster.Router.Send(agent.Uuid, cluster.LOCAL_AGENT, srvList)
+			}
+		}
+	}
+	log.Info("Leaving event loop")
+}
+
 func HandleStorage(ctx context.Context) {
 	log.Info("Starting storage loop")
 	for msg := range cluster.Router.GetStorageOutbound() {
@@ -31,19 +60,7 @@ func HandleStorage(ctx context.Context) {
 				log.Error(err.Error())
 			}
 
-			switch msg.SubType {
-			case "connect":
-				servers, err := storage.ListLiveServers(ctx)
-				if err != nil {
-					log.Error(err.Error())
-					break
-				}
-
-				srvList := transport.NewMessage("server", "list", servers)
-				cluster.Router.Send(agent.Uuid, cluster.LOCAL_AGENT, srvList)
-			}
-
-			if msg.SubType != "sync" {
+			if msg.SubType != "sync" { // TODO should make something that will more easily emit a sync message if we've made a change
 				msg.SubType = "sync"
 				cluster.Router.Emit(cluster.LOCAL_SERVER, msg)
 			}
