@@ -4,8 +4,14 @@ import ReduxThunk from 'redux-thunk';
 import reduxWebsocket from '@giantmachines/redux-websocket';
 
 import reducer from 'Include/reducers';
+import { websocketMessageMiddleware } from "Include/reducers/websocket";
 
-const reduxWebsocketMiddleware = reduxWebsocket();
+const reduxWebsocketMiddleware = reduxWebsocket({
+	reconnectOnClose: true,
+	reconnectOnError: true,
+	reconnectInterval: 1000,
+	deserializer: JSON.parse,
+});
 
 const loggerMiddleware = (store) => (next) => (action) => {
 	console.log('Action type:', action.type);
@@ -19,8 +25,9 @@ const initialState = {};
 
 const createStoreWithMiddleware = compose(
 	applyMiddleware(ReduxThunk),
+	applyMiddleware(reduxWebsocketMiddleware),
+	applyMiddleware(websocketMessageMiddleware),
 	applyMiddleware(loggerMiddleware),
-	applyMiddleware(reduxWebsocketMiddleware)
 )(createStore);
 
 const store = createStoreWithMiddleware(reducer, initialState);

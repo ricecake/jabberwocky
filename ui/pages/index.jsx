@@ -12,6 +12,9 @@ import Hidden from '@material-ui/core/Hidden';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 
+import { connect as wsConnect } from '@giantmachines/redux-websocket';
+
+
 let theme = createMuiTheme({
 	palette: {
 		primary: {
@@ -175,7 +178,23 @@ const AgentManage = lazy(() => import('Page/agent/manage'));
 const AgentTerminal = lazy(() => import('Page/agent/terminal'));
 
 export const App = (props) => {
-	const { classes } = props;
+	const { classes, wsConnect } = props;
+
+	React.useEffect(() =>{
+		var loc = window.location,
+		new_uri;
+
+		if (loc.protocol === 'https:') {
+			new_uri = 'wss:';
+		} else {
+			new_uri = 'ws:';
+		}
+		new_uri += '//' + loc.host;
+		new_uri += '/ws/admin';
+
+		wsConnect(new_uri);
+
+	}, [])
 
 	const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -259,6 +278,6 @@ export const App = (props) => {
 };
 
 const stateToProps = ({}) => ({});
-const dispatchToProps = (dispatch) => bindActionCreators({}, dispatch);
+const dispatchToProps = (dispatch) => bindActionCreators({ wsConnect }, dispatch);
 
 export default connect(stateToProps, dispatchToProps)(withStyles(styles)(App));
