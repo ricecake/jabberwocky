@@ -64,6 +64,9 @@ func init() {
 	// Headless with a named port will get dns records.
 	// Should accept both a "cluster name" parameter, as well as a "node name" parameter.  Node name should convert any dns label chars into dashes.
 	// Maybe the best answer is to just have a flag on the agent that disables auto-balancing?
+
+	// For kube stuff, it might work best to create headless deployments for "nodes", which all share a common gossip name, and then have each of those be a different service.
+	// That way, there can be N nodes in deployment 1, and we just load balance between deployments.
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -2,7 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { Switch, Route } from 'react-router-dom';
 
 import {
-	createMuiTheme,
+	createTheme,
 	ThemeProvider,
 	withStyles,
 } from '@material-ui/core/styles';
@@ -14,8 +14,7 @@ import { bindActionCreators } from 'redux';
 
 import { connect as wsConnect } from '@giantmachines/redux-websocket';
 
-
-let theme = createMuiTheme({
+let theme = createTheme({
 	palette: {
 		primary: {
 			light: '#63ccff',
@@ -180,9 +179,9 @@ const AgentTerminal = lazy(() => import('Page/agent/terminal'));
 export const App = (props) => {
 	const { classes, wsConnect } = props;
 
-	React.useEffect(() =>{
+	React.useEffect(() => {
 		var loc = window.location,
-		new_uri;
+			new_uri;
 
 		if (loc.protocol === 'https:') {
 			new_uri = 'wss:';
@@ -193,8 +192,7 @@ export const App = (props) => {
 		new_uri += '/ws/admin';
 
 		wsConnect(new_uri);
-
-	}, [])
+	}, []);
 
 	const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -278,6 +276,7 @@ export const App = (props) => {
 };
 
 const stateToProps = ({}) => ({});
-const dispatchToProps = (dispatch) => bindActionCreators({ wsConnect }, dispatch);
+const dispatchToProps = (dispatch) =>
+	bindActionCreators({ wsConnect }, dispatch);
 
 export default connect(stateToProps, dispatchToProps)(withStyles(styles)(App));

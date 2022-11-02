@@ -31,6 +31,16 @@ func (sr *SubsetRouter) Dump() {
 // Should be able to add all tags from new set, and then loop through and remove any bindings not in that new set.
 // When gossiping state, servers should share what messages they are interested in being notified about.
 
+func (sr *SubsetRouter) ReplaceBind(dest Destination, bindingis []map[string]string) {
+	Given new binding left, and old binding right
+	linearize left --- find a way to hash a binding?
+	linearize right
+
+	calculate intersection, and subtract from each.
+	add left-prime
+	remove right-prime
+}
+
 func (sr *SubsetRouter) AddBind(dest Destination, binding map[string]string) {
 	if len(binding) == 0 {
 		sr.root.subscribers = append(sr.root.subscribers, dest)

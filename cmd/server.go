@@ -96,6 +96,12 @@ to quickly create a Cobra application.`,
 			// Can use that to extract auth information from headers, then validate it and populate the Agent object on the session from the get go.
 			mAgent.HandleRequestWithKeys(c.Writer, c.Request, map[string]interface{}{
 				"code": code,
+				"agent": storage.Agent{
+					Uuid:            code,
+					DelegatedServer: nodeId,
+					Status:          "connected",
+					LastContact:     time.Now(),
+				},
 			})
 		})
 
@@ -154,6 +160,7 @@ to quickly create a Cobra application.`,
 
 		mAgent.HandleConnect(func(s *melody.Session) {
 			code := s.MustGet("code").(string)
+			agent := s.MustGet("agent").(storage.Agent)
 			log.Infof("Agent Connected %s", code)
 			channel := cluster.Router.RegisterAgent(code)
 			go func() {
@@ -178,33 +185,26 @@ to quickly create a Cobra application.`,
 				}
 			}()
 
-			cluster.Router.Emit(cluster.LOCAL_AGENT, transport.NewMessage("agent", "connect", storage.Agent{
-				Uuid:            code,
-				DelegatedServer: nodeId,
-				Status:          "connected",
-				LastContact:     time.Now(),
-			}))
+			cluster.Router.Emit(cluster.LOCAL_AGENT, transport.NewMessage("agent", "connect", agent))
 		})
 
 		mAgent.HandleDisconnect(func(s *melody.Session) {
 			code := s.MustGet("code").(string)
+			agent := s.MustGet("agent").(storage.Agent)
 			log.Infof("Closing websocket: %s", code)
 			cluster.Router.UnregisterAgent(code)
-			cluster.Router.Emit(cluster.LOCAL_AGENT, transport.NewMessage("agent", "disconnect", storage.Agent{
-				Uuid:            code,
-				DelegatedServer: nodeId,
-				Status:          "disconnected",
-				LastContact:     time.Now(),
-			}))
+			cluster.Router.Emit(cluster.LOCAL_AGENT, transport.NewMessage("agent", "disconnect", agent))
 
 		})
 
 		mAgent.HandleMessage(func(s *melody.Session, msg []byte) {
+			agent := s.MustGet("agent").(storage.Agent)
 			body, err := transport.DecodeJson(msg)
 			if err != nil {
 				log.Error(err.Error())
 				return
 			}
+			cluster.Router.Emit(cluster.LOCAL_AGENT, transport.NewMessage("agent", "contact", agent))
 
 			switch body.Type {
 			// case "identity":

@@ -16,3 +16,24 @@ need to make an interface for getting js function signatures into the autocomple
 	this should live under a generic "server configuration" http endpoint
 
 need to make sure we can take a node identifier *base* from the command line or env.
+
+need to figure out a plan for effectively merging records in gossip. -- maybe records need an "update_sequence" field, and we always use the larger, and increment when changes happen?
+	overarching problem is that if we always gossip everything, then eventually some records will flap.  If we only gossip local info, then some info will take too long to spread.
+	maybe update_sequence is a hybrid logical clock of some sort, to account for time being roughly consistent, but maybe screw-y?
+	maybe accept state from the other node that this node isn't responsible for?
+		This almost entirely is an issue for tracking agents, and nothing else.
+
+	slap a sequence field on everything, and make the update/save functions all add an onconflict update clause with a where filled in to limit it to if the remote sequence is greater than the local sequence.
+	sequence should update whenever the record changes.  ideally make the db do it.
+	then when gossiping that info, it should be simple enough to just merge, and not need to worry about filtering.
+
+
+need to create a script edit page, distinct from script create.
+	need to have a script browse page, that can then edit the script.
+		should make a script editor component, that can handle edit in the generic, while allowing the routing component to handle letting us know if we're creating or editing.
+
+Should make a generalized "reactor" or "response" loop, that handles sending data in response to messages, distinct from storage
+	would break apart the agent details and server update loops a bit.
+
+Should use the fancy file browser ui for script navigator.
+Should use the fancy big list filter/scroll tool https://bvaughn.github.io/react-virtualized/#/components/Grid for the agent browser  

@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
@@ -28,6 +29,9 @@ When creating an envelope, it can examine the message it holds, and fill in most
 
 //THESE SHOULD BE SYNC RWMutex
 type router struct {
+	// TODO: make this hold a bool that can indicate that it's closed, and have it close if the ctx that gets started is canceled.
+	closed bool
+
 	peerLock   *sync.RWMutex
 	clientLock *sync.RWMutex
 	agentLock  *sync.RWMutex
@@ -37,14 +41,15 @@ type router struct {
 	clusterOutbound    chan clusterEnvelope
 	processingOutbound chan transport.Message
 	storageOutbound    chan transport.Message
+	eventOutbound      chan transport.Message
 
 	peerOutbound   map[string]chan clusterEnvelope
 	clientOutbound map[string]chan transport.Message
 	agentOutbound  map[string]chan transport.Message
 }
 
-func NewRouter() *router {
-	return &router{
+func NewRouter(ctx context.Context) *router {
+	r := &router{
 		peerLock:   &sync.RWMutex{},
 		clientLock: &sync.RWMutex{},
 		agentLock:  &sync.RWMutex{},
@@ -60,6 +65,31 @@ func NewRouter() *router {
 		clientOutbound: make(map[string]chan transport.Message),
 		agentOutbound:  make(map[string]chan transport.Message),
 	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			// r.closed = true
+			// close(r.clusterOutbound)
+			// close(r.processingOutbound)
+			// close(r.storageOutbound)
+			// close(r.eventOutbound)
+
+			// for _, channel := range r.peerOutbound {
+			// 	close(channel)
+			// }
+
+			// for _, channel := range r.clientOutbound {
+			// 	close(channel)
+			// }
+
+			// for _, channel := range r.agentOutbound {
+			// 	close(channel)
+			// }
+		}
+	}()
+
+	return r
 }
 
 func (r *router) Dump() {
@@ -184,6 +214,10 @@ Break the bodies of the different cases out into helper functions, so that the d
 */
 
 func (r *router) Send(code string, e Emitter, msg transport.Message) {
+	if r.closed {
+		return
+	}
+
 	switch e {
 	case LOCAL_CLIENT:
 		r.clientLock.RLock()
@@ -203,6 +237,10 @@ func (r *router) Send(code string, e Emitter, msg transport.Message) {
 // Emit handles all messages.  Might change to "Route"?
 // gossip libs need to convert emitter fields from local to peer before passing to Emit
 func (r *router) Emit(e Emitter, msg transport.Message) {
+	if r.closed {
+		return
+	}
+
 	// TODO: need to switch on msg type and subtype, to decide where specifically to route it.  Probably move into a function, with the default being to log an error.
 	switch e {
 	case LOCAL_CLIENT:

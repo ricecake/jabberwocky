@@ -4,7 +4,7 @@ import ReduxThunk from 'redux-thunk';
 import reduxWebsocket from '@giantmachines/redux-websocket';
 
 import reducer from 'Include/reducers';
-import { websocketMessageMiddleware } from "Include/reducers/websocket";
+import { websocketMessageMiddleware } from 'Include/reducers/websocket';
 
 const reduxWebsocketMiddleware = reduxWebsocket({
 	reconnectOnClose: true,
@@ -27,7 +27,7 @@ const createStoreWithMiddleware = compose(
 	applyMiddleware(ReduxThunk),
 	applyMiddleware(reduxWebsocketMiddleware),
 	applyMiddleware(websocketMessageMiddleware),
-	applyMiddleware(loggerMiddleware),
+	applyMiddleware(loggerMiddleware)
 )(createStore);
 
 const store = createStoreWithMiddleware(reducer, initialState);

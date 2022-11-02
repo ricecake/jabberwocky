@@ -13,7 +13,7 @@ var Router *router
 
 // TODO: make this accept a channel for "cluster events" so that we can push node up/down to clients when they happen
 func StartCluster(ctx context.Context) error {
-	Router = NewRouter()
+	Router = NewRouter(ctx)
 
 	if err := startGossip(ctx); err != nil {
 		return err
